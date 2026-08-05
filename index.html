@@ -1118,6 +1118,7 @@ function renderGrid() {
           <button class="day-hd-btn" title="Importer depuis PDF" onclick="openPdfImport('${wk}',${day.dayIndex})">📄</button>
           <button class="day-hd-btn" title="Copier ce jour" onclick="openCopyDay('${wk}',${day.dayIndex})">📋</button>
           <button class="day-hd-btn" title="Ajouter séance" onclick="openNew('${wk}',${day.dayIndex})">+</button>
+          <button class="day-hd-btn" title="Supprimer toute la journée" onclick="deleteDay('${wk}',${day.dayIndex})">🗑</button>
         </div>
       </div>
       <div class="day-body" id="db_${day.dayIndex}"></div>`;
@@ -1618,6 +1619,17 @@ function dupSeance(wk, di, si) {
   state.weeks[wk][di].splice(si+1,0,copy);
   saveLocal(false); renderAll();
   toast('Séance dupliquée ✓','ok');
+}
+
+function deleteDay(wk, di) {
+  di = parseInt(di);
+  const seances = (state.weeks[wk] && state.weeks[wk][di]) || [];
+  if(!seances.length) { toast('Cette journée est déjà vide','inf'); return; }
+  const dayName = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi'][di];
+  if(!confirm(`Supprimer toutes les séances de ${dayName} ? Cette action est irréversible.`)) return;
+  state.weeks[wk][di] = [];
+  saveLocal(false); renderAll();
+  toast('Journée supprimée','inf');
 }
 
 // ════════════════════════════════════════════════════════════════════════════
