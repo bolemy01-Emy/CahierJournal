@@ -502,7 +502,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
       <div style="border:2px solid #3d5afe;border-radius:8px;overflow:hidden">
         <div style="background:#3d5afe;padding:6px 12px;display:flex;align-items:center;gap:6px">
           <span style="font-size:14px">🎯</span>
-          <span style="font-size:11px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.5px">Objectifs</span>
+          <span style="font-size:11px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.5px;flex:1">Objectifs</span>
+          <button type="button" class="btn btn-ghost btn-sm" style="background:rgba(255,255,255,.2);color:#fff;padding:3px 9px;font-size:11px" onclick="openRefPicker()">➕ Référentiel CE2</button>
         </div>
         <div style="padding:8px 10px;background:#fff">
           <textarea class="fta" id="fObjectif" placeholder="Ce que les élèves vont apprendre / savoir faire à l'issue de la séance…" rows="3" style="border:none;padding:0;box-shadow:none;min-height:56px"></textarea>
@@ -550,6 +551,21 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
     <h3 id="pickerTitle">Copier ce jour vers…</h3>
     <div class="picker-options" id="pickerOptions"></div>
     <button class="btn btn-ghost btn-sm" onclick="closePicker()">Annuler</button>
+  </div>
+</div>
+
+<!-- ══ RÉFÉRENTIEL PICKER ══════════════════════════════════════════════════ -->
+<div class="picker-overlay" id="refOverlay" onclick="if(event.target===this)closeRefPicker()">
+  <div class="picker-box" style="max-width:520px;max-height:80vh;display:flex;flex-direction:column">
+    <h3>➕ Compétences du référentiel CE2</h3>
+    <div class="fg" style="margin-bottom:10px">
+      <select class="fs-sel" id="refDiscipline" onchange="renderRefDomains()"></select>
+    </div>
+    <div id="refDomains" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:8px;padding-right:4px"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-ghost btn-sm" onclick="closeRefPicker()" style="flex:1">Annuler</button>
+      <button class="btn btn-primary btn-sm" onclick="insertRefSelection()" style="flex:1">Insérer la sélection</button>
+    </div>
   </div>
 </div>
 
@@ -994,6 +1010,308 @@ function seedWeek0() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// RÉFÉRENTIEL DE COMPÉTENCES CE2 (cycle 2)
+// Synthèse à partir des textes officiels Éduscol :
+// - Français / Mathématiques : attendus de fin d'année CE2, programme 2025 (BO du 31/10/2024)
+// - Anglais : repères annuels de progression cycle 2 (adossés au CECRL)
+// - EMC : repères annuels de progression cycle 2
+// - Questionner le monde / EPS / Arts plastiques / Éducation musicale : programme cycle 2,
+//   BO n°31 du 30/07/2020 (toujours en vigueur pour ces disciplines à ce jour)
+// Ces items sont une reformulation synthétique à visée pratique (rédaction Claude),
+// pas une reproduction du texte officiel — se reporter aux BO pour le texte intégral.
+// ════════════════════════════════════════════════════════════════════════════
+const REFERENTIEL_CE2 = {
+  "Français": [
+    { domaine: "Langage oral — Écouter et comprendre", items: [
+      "Maintenir une attention orientée vers un but d'écoute",
+      "Repérer et mémoriser les informations importantes d'un message oral",
+      "Reformuler ou résumer un texte entendu",
+      "Mémoriser le vocabulaire entendu dans un texte",
+      "Repérer ses difficultés de compréhension à l'oral",
+    ]},
+    { domaine: "Langage oral — Dire, s'exprimer", items: [
+      "Organiser son discours pour se faire comprendre",
+      "Adapter le volume et le débit de sa voix à la situation",
+      "Mémoriser et dire un texte à voix haute",
+      "Expliquer sa démarche, sa production, son raisonnement",
+    ]},
+    { domaine: "Langage oral — Participer à des échanges", items: [
+      "Respecter les règles régulant la prise de parole",
+      "Organiser son propos à l'aide de connecteurs",
+      "Utiliser un lexique de plus en plus varié à l'oral",
+      "Adopter un langage de plus en plus soutenu face à un auditoire",
+      "Adopter une distance critique sur sa propre parole et celle d'un pair",
+    ]},
+    { domaine: "Lecture — Identifier des mots", items: [
+      "Établir les correspondances graphophonologiques et décoder des mots inconnus",
+      "Reconnaître directement les mots fréquents et irréguliers",
+      "Lire avec fluidité (environ 90 mots/minute en fin de CE2)",
+    ]},
+    { domaine: "Lecture — Comprendre un texte", items: [
+      "Mettre en œuvre une démarche explicite de compréhension d'un texte",
+      "Faire des inférences à partir d'un texte",
+      "Justifier son interprétation en s'appuyant sur le texte",
+      "Repérer une rupture de compréhension et mettre en place une stratégie de récupération du sens",
+      "Participer à un débat interprétatif sur un texte lu",
+      "Comprendre un texte de 2 à 3 pages lu en autonomie",
+    ]},
+    { domaine: "Lecture — Pratiquer différentes formes de lecture", items: [
+      "Lire pour réaliser une tâche, s'informer, se documenter",
+      "Lire une histoire pour la comprendre et la raconter",
+      "Lire pour le plaisir et échanger sur ses lectures",
+    ]},
+    { domaine: "Lecture — Lire à voix haute", items: [
+      "Lire un texte en respectant la ponctuation",
+      "Adapter l'intonation et le rythme au sens du texte",
+      "Restituer les différences d'intonation selon l'état des personnages",
+    ]},
+    { domaine: "Écriture — Copier", items: [
+      "Copier un texte avec vitesse et exactitude croissantes",
+      "Utiliser des stratégies de copie (groupes de mots, mémorisation)",
+      "Relire sa copie pour vérifier sa conformité orthographique",
+    ]},
+    { domaine: "Écriture — Produire des écrits", items: [
+      "Identifier les caractéristiques d'un genre de texte",
+      "Planifier un écrit (organiser ses idées avant de rédiger)",
+      "Écrire un texte en respectant les contraintes du genre identifié",
+      "Rédiger des écrits variés dans toutes les disciplines",
+      "Utiliser des connecteurs logiques dans un texte écrit",
+    ]},
+    { domaine: "Écriture — Réviser et améliorer son écrit", items: [
+      "Repérer les dysfonctionnements d'un texte à la relecture (omissions, incohérences)",
+      "Exercer une vigilance orthographique sur son texte",
+      "Utiliser une grille ou un outil de relecture pour se corriger",
+      "Corriger un texte à l'aide du correcteur orthographique",
+    ]},
+    { domaine: "Étude de la langue — Lexique et vocabulaire", items: [
+      "Trouver des synonymes, antonymes, mots de la même famille",
+      "Consulter un article de dictionnaire",
+      "Distinguer les niveaux de langue familier, courant, soutenu",
+      "Identifier le sens d'un mot d'après son contexte",
+    ]},
+    { domaine: "Étude de la langue — Orthographe lexicale", items: [
+      "Mémoriser l'orthographe du vocabulaire fréquent et des mots invariables",
+      "Regrouper des mots par familles ou analogies morphologiques",
+      "Raisonner à partir de la morphologie pour orthographier un mot inconnu",
+    ]},
+    { domaine: "Étude de la langue — Grammaire de la phrase", items: [
+      "Identifier le sujet, le verbe et les compléments d'une phrase",
+      "Différencier les classes de mots (nom, déterminant, adjectif, verbe, pronom)",
+      "Reconnaître les types et formes de phrases",
+      "Utiliser la ponctuation de fin de phrase et le discours rapporté",
+    ]},
+    { domaine: "Étude de la langue — Orthographe grammaticale et conjugaison", items: [
+      "Réaliser les accords dans le groupe nominal (genre, nombre)",
+      "Identifier la relation sujet-verbe dans des situations simples",
+      "Conjuguer au présent, à l'imparfait, au futur et au passé composé (verbes usuels)",
+      "Trouver l'infinitif d'un verbe conjugué",
+    ]},
+  ],
+  "Mathématiques": [
+    { domaine: "Nombres — Dénombrer, comparer, ordonner", items: [
+      "Dénombrer, comparer, encadrer et ordonner des nombres jusqu'à 10 000",
+      "Utiliser les symboles =, < et >",
+      "Situer un nombre sur une droite graduée",
+      "Identifier la parité d'un nombre",
+      "Différencier chiffre des unités, dizaines, centaines, milliers",
+    ]},
+    { domaine: "Nombres — Nommer, lire, écrire, représenter", items: [
+      "Lire et écrire un nombre en chiffres et en lettres jusqu'à 10 000",
+      "Passer d'une représentation d'un nombre à une autre (décomposition, produit, somme)",
+      "Connaître la valeur des chiffres selon leur position",
+    ]},
+    { domaine: "Résolution de problèmes", items: [
+      "Résoudre un problème additif et/ou multiplicatif en une à trois étapes",
+      "Modéliser un problème à l'aide d'un schéma ou d'une écriture mathématique",
+      "Résoudre un problème de partage ou de groupement",
+      "Résoudre un problème à partir d'un tableau ou d'un graphique",
+    ]},
+    { domaine: "Calcul mental", items: [
+      "Connaître les doubles et moitiés des nombres usuels",
+      "Connaître les tables d'addition et de multiplication (2 à 9)",
+      "Calculer mentalement des sommes, différences et produits",
+      "Trouver rapidement un complément à la dizaine, la centaine, au millier",
+      "Estimer un ordre de grandeur pour vérifier un résultat",
+    ]},
+    { domaine: "Calcul en ligne et calcul posé", items: [
+      "Calculer en ligne une somme ou une différence de grands nombres",
+      "Poser et calculer une addition ou une soustraction en colonnes",
+      "Poser et calculer une multiplication à un ou deux chiffres",
+      "Utiliser la commutativité de l'addition et de la multiplication",
+    ]},
+    { domaine: "Grandeurs — Longueurs", items: [
+      "Mesurer et tracer un segment avec une règle graduée (mm, cm, dm, m)",
+      "Choisir l'unité de longueur adaptée à une situation",
+      "Estimer un ordre de grandeur d'une longueur",
+    ]},
+    { domaine: "Grandeurs — Masses et contenances", items: [
+      "Comparer des masses et utiliser une balance",
+      "Choisir l'unité de masse adaptée (g, kg, t)",
+      "Mesurer une contenance en L, dL, cL",
+    ]},
+    { domaine: "Grandeurs — Dates et durées", items: [
+      "Lire l'heure sur une horloge à aiguilles et un affichage digital",
+      "Connaître les unités de mesure de durées et leurs relations",
+      "Estimer et calculer une durée",
+    ]},
+    { domaine: "Grandeurs — Résoudre des problèmes de grandeurs", items: [
+      "Résoudre un problème impliquant longueurs, masses, contenances ou durées",
+      "Résoudre un problème avec de la monnaie (rendre la monnaie, calculer un prix)",
+    ]},
+    { domaine: "Espace — Se repérer et se déplacer", items: [
+      "Situer des objets les uns par rapport aux autres avec un vocabulaire spatial précis",
+      "Coder ou suivre un déplacement (avancer, tourner, reculer)",
+      "Se repérer sur un plan et suivre un itinéraire",
+    ]},
+    { domaine: "Géométrie — Solides", items: [
+      "Nommer et décrire les solides usuels (cube, pavé, cône, cylindre, pyramide, boule)",
+      "Décrire un solide avec le vocabulaire face, sommet, arête",
+      "Fabriquer un solide à partir d'un patron ou d'assemblage",
+    ]},
+    { domaine: "Géométrie — Figures planes", items: [
+      "Nommer et décrire carré, rectangle, triangle, cercle",
+      "Reproduire une figure avec règle, équerre et compas",
+      "Reconnaître et tracer un angle droit",
+      "Reconnaître et compléter une figure symétrique",
+    ]},
+  ],
+  "Anglais": [
+    { domaine: "Compréhension de l'oral", items: [
+      "Reconnaître des mots familiers dans un énoncé court et clair (comptine, chanson, dialogue)",
+      "Comprendre des consignes de classe simples",
+      "Associer un document oral à une image",
+      "Suivre le fil d'une histoire courte et étayée",
+    ]},
+    { domaine: "Compréhension de l'écrit", items: [
+      "Reconnaître des mots familiers accompagnés d'images",
+      "Comprendre un message écrit court et illustré (carte, courriel, annonce)",
+      "Trouver une information simple dans un texte court (lieu, date, prix)",
+    ]},
+    { domaine: "Expression orale en continu", items: [
+      "Reproduire un modèle oral (répéter, réciter)",
+      "Se présenter avec des mots et expressions mémorisés",
+      "Décrire brièvement une personne, un objet ou un animal familier",
+      "Raconter une histoire très brève à l'aide d'images",
+    ]},
+    { domaine: "Expression orale en interaction", items: [
+      "Saluer, se présenter et prendre congé",
+      "Poser et répondre à des questions simples sur un sujet familier",
+      "Exprimer un sentiment ou une émotion simple",
+      "Demander de répéter ou de clarifier un mot",
+    ]},
+    { domaine: "Expression écrite", items: [
+      "Copier des mots ou expressions connus",
+      "Écrire sous la dictée quelques mots isolés déjà mémorisés",
+      "Compléter un questionnaire très simple",
+    ]},
+    { domaine: "Culture et médiation", items: [
+      "Identifier une similitude ou une différence culturelle",
+      "Repérer une information dans un support visuel (affiche, pictogramme)",
+    ]},
+  ],
+  "EMC": [
+    { domaine: "La sensibilité — Soi et les autres", items: [
+      "Écouter l'autre et respecter les tours de parole",
+      "Utiliser les formules de politesse adaptées",
+      "Adopter un comportement approprié en classe et dans l'école",
+      "Connaître les droits de l'enfant à travers des exemples simples",
+    ]},
+    { domaine: "Le droit et la règle", items: [
+      "Connaître les règles élémentaires d'hygiène personnelle et collective",
+      "Identifier les principaux services d'urgence (SAMU, police, pompiers)",
+      "Être sensibilisé aux gestes de premiers secours",
+      "Aborder la notion de discrimination à travers des exemples",
+    ]},
+    { domaine: "Le jugement — Penser par soi-même et avec les autres", items: [
+      "Distinguer les différents supports d'information (presse, radio, TV, internet)",
+      "Identifier et remobiliser une information issue d'un support adapté",
+    ]},
+    { domaine: "L'engagement — Agir individuellement et collectivement", items: [
+      "Expérimenter la prise de décision à la majorité dans la classe",
+      "Identifier les responsables élus de la commune (maire, conseillers)",
+      "Connaître les symboles de la République (drapeau, Marseillaise, devise, 14 juillet)",
+      "Savoir que voter est un droit et connaître le suffrage universel",
+    ]},
+  ],
+  "Questionner le monde": [
+    { domaine: "Le vivant", items: [
+      "Connaître des caractéristiques du monde vivant, ses interactions, sa diversité",
+      "Reconnaître des comportements favorables à sa santé",
+    ]},
+    { domaine: "La matière", items: [
+      "Identifier les trois états de la matière et observer des changements d'état",
+      "Identifier un changement d'état de l'eau dans un phénomène du quotidien",
+    ]},
+    { domaine: "Les objets techniques", items: [
+      "Comprendre la fonction et le fonctionnement d'un objet fabriqué",
+      "Réaliser un objet ou un circuit électrique simple en sécurité",
+      "Commencer à s'approprier un environnement numérique",
+    ]},
+    { domaine: "Se repérer dans l'espace", items: [
+      "Se repérer dans l'espace et le représenter (plan, maquette)",
+      "Situer un lieu sur une carte, un globe ou un écran",
+    ]},
+    { domaine: "Se repérer dans le temps", items: [
+      "Se repérer dans le temps et mesurer des durées",
+      "Repérer et situer un événement dans un temps long (frise historique)",
+      "Comparer des modes de vie à différentes époques",
+    ]},
+  ],
+  "E.P.S.": [
+    { domaine: "Produire une performance mesurée (courir, sauter, lancer)", items: [
+      "Courir vite sur une distance courte (course de vitesse)",
+      "Courir longtemps à allure régulière",
+      "Sauter loin ou haut en optimisant son élan et son impulsion",
+      "Lancer loin ou précisément avec un engin adapté",
+    ]},
+    { domaine: "Adapter ses déplacements à des environnements variés", items: [
+      "Se déplacer dans un environnement inhabituel (eau, milieu naturel)",
+      "Adapter son équilibre et ses appuis à un parcours varié",
+    ]},
+    { domaine: "S'exprimer par une prestation artistique et/ou acrobatique", items: [
+      "Réaliser un enchaînement d'actions maîtrisées (gymnastique, danse)",
+      "Exprimer des sensations et des émotions par le mouvement",
+      "Observer et apprécier une prestation d'un camarade",
+    ]},
+    { domaine: "Conduire et maîtriser un affrontement collectif ou interindividuel", items: [
+      "Coopérer avec des partenaires pour affronter collectivement des adversaires",
+      "Respecter les règles d'un jeu collectif ou d'un duel",
+      "Adapter son attitude (attaquant/défenseur) à la situation de jeu",
+    ]},
+  ],
+  "Arts plastiques": [
+    { domaine: "Production plastique", items: [
+      "Réaliser et donner à voir une production plastique individuelle ou collective",
+      "Expérimenter des matériaux, supports et outils variés",
+      "Faire preuve d'inventivité dans une réponse à une consigne ouverte",
+    ]},
+    { domaine: "Vocabulaire et démarche", items: [
+      "Décrire et commenter sa production ou celle d'un pair",
+      "Utiliser un vocabulaire plastique simple pour s'exprimer",
+      "Découvrir une œuvre et exprimer un ressenti argumenté",
+    ]},
+  ],
+  "Éducation musicale": [
+    { domaine: "Chanter", items: [
+      "Interpréter un chant avec expressivité (phrasé, articulation)",
+      "Mémoriser et chanter un répertoire varié",
+    ]},
+    { domaine: "Écouter, comparer", items: [
+      "Décrire et comparer des éléments sonores d'une œuvre écoutée",
+      "Identifier une caractéristique musicale simple (rythme, intensité, timbre)",
+    ]},
+    { domaine: "Explorer, imaginer", items: [
+      "Explorer les sons de la voix et des objets sonores",
+      "Inventer une courte séquence rythmique ou mélodique",
+    ]},
+    { domaine: "Échanger, partager", items: [
+      "Exprimer ses ressentis face à un extrait musical",
+      "Écouter et respecter la production musicale des autres",
+    ]},
+  ],
+};
+
+// ════════════════════════════════════════════════════════════════════════════
 // STATE
 // ════════════════════════════════════════════════════════════════════════════
 let state = JSON.parse(localStorage.getItem('cj_v3') || 'null') || {
@@ -1321,6 +1639,48 @@ function showPicker(title, opts) {
   document.getElementById('pickerOverlay').classList.add('open');
 }
 function closePicker() { document.getElementById('pickerOverlay').classList.remove('open'); }
+
+// ════════════════════════════════════════════════════════════════════════════
+// RÉFÉRENTIEL PICKER
+// ════════════════════════════════════════════════════════════════════════════
+function openRefPicker() {
+  const sel = document.getElementById('refDiscipline');
+  if (!sel.dataset.filled) {
+    sel.innerHTML = Object.keys(REFERENTIEL_CE2).map(d => `<option value="${d}">${d}</option>`).join('');
+    sel.dataset.filled = '1';
+  }
+  renderRefDomains();
+  document.getElementById('refOverlay').classList.add('open');
+}
+function closeRefPicker() { document.getElementById('refOverlay').classList.remove('open'); }
+
+function renderRefDomains() {
+  const discipline = document.getElementById('refDiscipline').value;
+  const domains = REFERENTIEL_CE2[discipline] || [];
+  const wrap = document.getElementById('refDomains');
+  wrap.innerHTML = domains.map((dom, di) => `
+    <details ${di===0?'open':''} style="border:1px solid var(--border);border-radius:8px;padding:8px 10px">
+      <summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:var(--text2)">${dom.domaine}</summary>
+      <div style="display:flex;flex-direction:column;gap:5px;margin-top:8px">
+        ${dom.items.map((it, ii) => `
+          <label style="display:flex;align-items:flex-start;gap:7px;font-size:12.5px;cursor:pointer;line-height:1.4">
+            <input type="checkbox" data-ref-item value="${encodeURIComponent(it)}" style="margin-top:2px">
+            <span>${it}</span>
+          </label>`).join('')}
+      </div>
+    </details>`).join('');
+}
+
+function insertRefSelection() {
+  const checked = Array.from(document.querySelectorAll('#refDomains input[data-ref-item]:checked'))
+    .map(cb => decodeURIComponent(cb.value));
+  if (!checked.length) { closeRefPicker(); return; }
+  const ta = document.getElementById('fObjectif');
+  const bullets = checked.map(t => '• '+t).join('\n');
+  ta.value = ta.value.trim() ? ta.value.trim() + '\n' + bullets : bullets;
+  closeRefPicker();
+  toast(checked.length>1 ? checked.length+' compétences ajoutées ✓' : 'Compétence ajoutée ✓','ok');
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 // SEANCE EDITOR MODAL
