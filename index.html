@@ -480,6 +480,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
         </datalist>
       </div>
       <div class="fg">
+        <label class="fl">Sous-domaine</label>
+        <input class="fi" type="text" id="fSousDomaine" list="sousDomList" placeholder="Ex : Grammaire">
+        <datalist id="sousDomList"></datalist>
+      </div>
+      <div class="fg">
         <label class="fl">Notion / Séquence</label>
         <input class="fi" type="text" id="fNotion" placeholder="Ex : Notion 42">
       </div>
@@ -784,6 +789,25 @@ function normalizeDomain(title, domain) {
   if(s.includes('emc')||s.includes('conseil')) return 'Enseignement moral et civique (EMC)';
   if(s.includes('science')||s.includes('qlm')||s.includes('espace')||s.includes('questionner')) return 'Questionner le monde';
   return domain || 'Autre';
+}
+
+// Sous-domaines proposés (suggestions uniquement, champ texte libre) — définis pour
+// Français, Mathématiques et Questionner le monde à la demande de l'utilisateur.
+// Les autres domaines n'ont pas de sous-liste prédéfinie pour l'instant (pas de source
+// officielle validée) : le champ reste utilisable en texte libre sans suggestion.
+const SUBDOMAINS = {
+  'Français': ['Grammaire','Orthographe','Vocabulaire','Conjugaison'],
+  'Mathématiques': ['Nombres et calculs','Espace et géométrie','Grandeurs et mesures'],
+  'Questionner le monde': ['Le vivant','L\'espace','Le temps']
+};
+
+function updateSousDomaineList() {
+  const t = document.getElementById('fTitle')?.value || '';
+  const d = document.getElementById('fDomain')?.value || '';
+  const dom = normalizeDomain(t, d);
+  const list = SUBDOMAINS[dom] || [];
+  const dl = document.getElementById('sousDomList');
+  if (dl) dl.innerHTML = list.map(x => `<option>${x}</option>`).join('');
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1248,7 +1272,7 @@ function makeCard(s, wk, dayIndex, si) {
     </div>
     <div class="card-body" onclick="openEdit('${wk}',${dayIndex},${si})">
       <div class="card-title">${s.title}</div>
-      ${s.domain?`<div class="card-domain" style="font-size:11px;color:var(--text3)">${s.domain}${s.notion?' · '+s.notion:''}</div>`:''}
+      ${s.domain?`<div class="card-domain" style="font-size:11px;color:var(--text3)">${s.domain}${s.sousDomaine?' · '+s.sousDomaine:''}${s.notion?' · '+s.notion:''}</div>`:''}
       ${matChips?`<div class="card-chips">${matChips}${extra}</div>`:''}
       ${printObjectif}${printMat}${printBlocks}
     </div>`;
@@ -1406,12 +1430,14 @@ function populateModal(s) {
   document.getElementById('fEnd').value = s?.end || '';
   document.getElementById('fDur').value = dur(s?.start||'', s?.end||'');
   document.getElementById('fDomain').value = s?.domain || '';
+  updateSousDomaineList();
+  document.getElementById('fSousDomaine').value = s?.sousDomaine || '';
   document.getElementById('fNotion').value = s?.notion || '';
   document.getElementById('fLieu').value = s?.lieu || 'Classe';
   document.getElementById('fObjectif').value = s?.objectif || '';
   document.getElementById('fNotes').value = s?.notes || '';
   document.getElementById('fsHeaderSub').textContent = isNew ? 'Nouvelle séance' :
-    `${s.domain||''}${s.notion?' · '+s.notion:''}`;
+    `${s.domain||''}${s.sousDomaine?' · '+s.sousDomaine:''}${s.notion?' · '+s.notion:''}`;
   document.getElementById('deleteBtnWrap').style.display = isNew ? 'none' : '';
 
   // blocks
@@ -1441,8 +1467,9 @@ function closeModal() {
 }
 function overlayClick(e) { if(e.target===document.getElementById('fsOverlay')) closeModal(); }
 
-function onTitleChange() { autoColor(); }
+function onTitleChange() { autoColor(); updateSousDomaineList(); }
 function autoColor() {
+  updateSousDomaineList();
   if(!document.getElementById('fAutoColor').checked) return; // couleur manuelle : ne rien recalculer
   const t = document.getElementById('fTitle').value;
   const d = document.getElementById('fDomain').value;
@@ -1653,6 +1680,7 @@ function saveSeance() {
     end: document.getElementById('fEnd').value,
     title,
     domain: domainVal,
+    sousDomaine: document.getElementById('fSousDomaine').value,
     notion: document.getElementById('fNotion').value,
     lieu: document.getElementById('fLieu').value,
     objectif: document.getElementById('fObjectif').value,
@@ -2080,7 +2108,7 @@ function renderSemainier() {
 
         const dom = document.createElement('div');
         dom.style.cssText = 'font-size:12.5px;font-weight:600;color:var(--text1)';
-        dom.textContent = [s.domain, s.notion].filter(Boolean).join(' · ') || s.title || 'Sans titre';
+        dom.textContent = [s.domain, s.sousDomaine, s.notion].filter(Boolean).join(' · ') || s.title || 'Sans titre';
         content.appendChild(dom);
 
         if(s.objectif) {
@@ -2140,7 +2168,7 @@ async function exportSemainierWord() {
 
     const rows = day.seances.map(s => {
       const timeStr = (s.start||'') + (s.end ? ' → '+s.end : '');
-      const domTxt = [s.domain, s.notion].filter(Boolean).join(' · ') || s.title || 'Sans titre';
+      const domTxt = [s.domain, s.sousDomaine, s.notion].filter(Boolean).join(' · ') || s.title || 'Sans titre';
       return new TableRow({ children: [
         new TableCell({
           borders,
@@ -2305,7 +2333,7 @@ async function exportWord() {
               children: [
                 new Paragraph({ children: [new TextRun({ text: s.title||'Sans titre', bold:true, size:22, font:'Arial', color:'111111' })] }),
                 (s.domain||s.notion) ? new Paragraph({ children: [
-                  new TextRun({ text: [s.domain, s.notion].filter(Boolean).join(' · '), size:18, color:'555555', font:'Arial' })
+                  new TextRun({ text: [s.domain, s.sousDomaine, s.notion].filter(Boolean).join(' · '), size:18, color:'555555', font:'Arial' })
                 ]}) : new Paragraph({children:[]}),
                 s.objectif ? new Paragraph({ children: [
                   new TextRun({ text:'🎯 ', size:18 }),
