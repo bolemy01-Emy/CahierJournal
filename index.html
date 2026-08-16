@@ -99,6 +99,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
   overflow:hidden;box-shadow:var(--sh)}
 .day-hd{padding:11px 15px;background:linear-gradient(135deg,#3d5afe,#536dfe);
   color:#fff;display:flex;justify-content:space-between;align-items:center}
+.day-hd.day-hd-issue{background:linear-gradient(135deg,#c62828,#e53935)}
+.day-issue-icon{cursor:help;font-size:15px;flex-shrink:0}
 .day-hd-left .dn{font-size:14px;font-weight:700}
 .day-hd-left .dd{font-size:11px;opacity:.8}
 .day-hd-actions{display:flex;gap:4px}
@@ -1182,6 +1184,57 @@ function renderSummary() {
   if(!Object.keys(totals).length) bar.innerHTML += '<span style="color:var(--text3);font-size:12px">Aucune séance</span>';
 }
 
+// Horaires officiels de la journée de classe (utilisés pour détecter les trous
+// en tout début / toute fin de demi-journée, en plus des trous entre créneaux).
+const SCHOOL_BLOCKS = [
+  { start: '08:30', end: '11:30', label: 'Matin' },
+  { start: '13:30', end: '16:30', label: 'Après-midi' }
+];
+
+// Détecte les chevauchements et trous horaires dans les créneaux d'une journée
+// (séances + pauses confondues), par rapport aux deux demi-journées officielles.
+// La pause méridienne (entre les deux blocs) n'est jamais considérée comme un trou.
+// Retourne une liste de messages ; liste vide = journée cohérente.
+function getDayIssues(entries) {
+  const items = entries
+    .filter(e => e.start && e.end)
+    .map(e => ({
+      start: t2m(e.start), end: t2m(e.end),
+      startStr: e.start, endStr: e.end,
+      label: e.type === 'break' ? (e.label || 'Pause') : (e.title || 'Séance')
+    }))
+    .filter(e => !isNaN(e.start) && !isNaN(e.end) && e.end > e.start)
+    .sort((a, b) => a.start - b.start);
+
+  const issues = [];
+
+  SCHOOL_BLOCKS.forEach(block => {
+    const bStart = t2m(block.start), bEnd = t2m(block.end);
+    const blockItems = items.filter(e => e.start < bEnd && e.end > bStart);
+    if (!blockItems.length) {
+      issues.push(`${block.label} (${block.start}-${block.end}) : rien de planifié`);
+      return;
+    }
+    if (blockItems[0].start > bStart) {
+      issues.push(`Trou horaire (${block.label}) : ${block.start} → ${blockItems[0].startStr} (${m2s(blockItems[0].start - bStart)} non planifié)`);
+    }
+    for (let i = 1; i < blockItems.length; i++) {
+      const prev = blockItems[i - 1], cur = blockItems[i];
+      if (cur.start < prev.end) {
+        issues.push(`Chevauchement : "${prev.label}" (${prev.startStr}-${prev.endStr}) et "${cur.label}" (${cur.startStr}-${cur.endStr})`);
+      } else if (cur.start > prev.end) {
+        issues.push(`Trou horaire : ${prev.endStr} → ${cur.startStr} (${m2s(cur.start - prev.end)} non planifié)`);
+      }
+    }
+    const last = blockItems[blockItems.length - 1];
+    if (last.end < bEnd) {
+      issues.push(`Trou horaire (${block.label}) : ${last.endStr} → ${block.end} (${m2s(bEnd - last.end)} non planifié)`);
+    }
+  });
+
+  return issues;
+}
+
 function renderGrid() {
   const grid = document.getElementById('dayGrid');
   grid.innerHTML = '';
@@ -1194,15 +1247,18 @@ function renderGrid() {
     const totalMins = seances.filter(s=>s.type!=='break').reduce((a,s)=>{
       const d=t2m(s.end)-t2m(s.start); return a+(isNaN(d)?0:d);
     },0);
+    const issues = getDayIssues(seances);
+    const issuesAttr = issues.join('\n').replace(/"/g,'&quot;');
 
     const col = document.createElement('div');
     col.className = 'day-col';
     col.innerHTML = `
-      <div class="day-hd">
+      <div class="day-hd${issues.length?' day-hd-issue':''}">
         <div class="day-hd-left">
           <div class="dn">${['Lundi','Mardi','Mercredi','Jeudi','Vendredi'][day.dayIndex]}</div>
           <div class="dd">${day.date}${totalMins>0?' · '+m2s(totalMins):''}</div>
         </div>
+        ${issues.length?`<span class="day-issue-icon" title="${issuesAttr}">ℹ️</span>`:''}
         <div class="day-hd-actions">
           <button class="day-hd-btn" title="Importer depuis PDF" onclick="openPdfImport('${wk}',${day.dayIndex})">📄</button>
           <button class="day-hd-btn" title="Copier ce jour" onclick="openCopyDay('${wk}',${day.dayIndex})">📋</button>
@@ -1508,10 +1564,9 @@ function makeBlockEl(b, i) {
   const wrap = document.createElement('div');
   wrap.className = 'block';
   wrap.dataset.bi = i;
-  wrap.draggable = true;
 
   wrap.innerHTML = `
-    <div class="block-hd">
+    <div class="block-hd" draggable="true">
       <div class="block-icon" style="background:${bt.color}">${bt.icon}</div>
       <select class="block-type-select" style="color:${bt.color}" onchange="changeBlockType(${i},this.value)">
         ${BLOCK_TYPES.map(t=>`<option value="${t.id}" ${t.id===b.type?'selected':''}>${t.icon} ${t.label}</option>`).join('')}
@@ -1523,18 +1578,18 @@ function makeBlockEl(b, i) {
       </div>
     </div>
     <div class="block-content">
-      <textarea draggable="false" placeholder="${bt.ph}" oninput="editBlocks[${i}].text=this.value;autoResize(this)" ondblclick="this.select()">${b.text||''}</textarea>
+      <textarea placeholder="${bt.ph}" oninput="editBlocks[${i}].text=this.value;autoResize(this)" ondblclick="this.select()">${b.text||''}</textarea>
     </div>`;
 
-  // block drag
-  wrap.addEventListener('dragstart', e => {
-    if(e.target.closest('.block-content')) { e.preventDefault(); return; } // ne pas capter les clics dans le texte
+  // block drag — uniquement depuis l'en-tête, jamais depuis le texte
+  const hd = wrap.querySelector('.block-hd');
+  hd.addEventListener('dragstart', e => {
     dragBlock = i;
     wrap.classList.add('dragging-block');
     e.stopPropagation();
     e.dataTransfer.effectAllowed = 'move';
   });
-  wrap.addEventListener('dragend', e => {
+  hd.addEventListener('dragend', e => {
     wrap.classList.remove('dragging-block');
     dragBlock = null;
     document.querySelectorAll('.drag-over-block').forEach(el=>el.classList.remove('drag-over-block'));
