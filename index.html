@@ -90,8 +90,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 /* ══════════════════════════════════════════════════
    DAY GRID
 ══════════════════════════════════════════════════ */
-.main{padding:18px 20px}
-.day-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.main{padding:18px 20px;overflow-x:auto}
+.day-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;min-width:min-content}
 @media(max-width:1100px){.day-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:680px){.day-grid{grid-template-columns:1fr}}
 
@@ -105,7 +105,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .day-hd-btn{background:rgba(255,255,255,.2);border:none;color:#fff;width:26px;height:26px;
   border-radius:5px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:background .1s}
 .day-hd-btn:hover{background:rgba(255,255,255,.38)}
-.day-body{padding:7px;display:flex;flex-direction:column;gap:3px;min-height:300px}
+.day-body{padding:7px;display:flex;flex-direction:column;gap:3px;min-height:300px;max-height:calc(100vh - 260px);overflow-y:auto}
 
 /* ══════════════════════════════════════════════════
    SEANCE CARD (compact view)
@@ -288,7 +288,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .toast.show{opacity:1;transform:none}
 .toast.ok::before{content:'✓';color:#69f0ae;font-size:14px}
 .toast.inf::before{content:'ℹ';color:#82b1ff;font-size:14px}
-.toast.err::before{content:'✕';color:#ff5252;font-size:14px}
 
 /* ══════════════════════════════════════════════════
    PRINT
@@ -303,13 +302,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
   @page{margin:1cm;size:A4 portrait}
   html,body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   body{font-size:10px}
-  .main{padding:2px}
+  .main{padding:2px;overflow:visible!important}
 
   /* grille : un jour = une page */
   .day-grid{display:block!important}
   .day-col{break-before:page;break-inside:auto;box-shadow:none!important;border:1px solid #ccc!important;border-radius:4px!important}
   .day-col:first-child{break-before:avoid}
-  .day-body{min-height:0!important;gap:4px!important;padding:6px!important}
+  .day-body{min-height:0!important;max-height:none!important;overflow:visible!important;gap:4px!important;padding:6px!important}
 
   /* header jour */
   .day-hd{padding:6px 10px!important;background:linear-gradient(135deg,#3d5afe,#536dfe)!important}
@@ -376,7 +375,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .imp-notice{font-size:12px;color:var(--text2);background:#fff8e1;border:1px solid #ffe082;
   border-radius:8px;padding:10px 14px;line-height:1.6}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 <body>
 
@@ -389,6 +387,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
     <button class="btn btn-ghost" onclick="openSettings()">⚙️ Paramètres</button>
     <button class="btn btn-ghost" onclick="window.print()">🖨️ Imprimer</button>
     <button class="btn btn-ghost" onclick="exportWord()" title="Exporter la semaine en cours en Word">📝 Word</button>
+    <button class="btn btn-ghost" onclick="openSemainier()" title="Vue créneaux / domaines / objectifs de la semaine en cours">📅 Semainier</button>
     <button class="btn btn-green" onclick="saveLocal(true)">💾 Sauvegarder</button>
     <button class="btn btn-primary" onclick="openNew()">+ Séance</button>
   </div>
@@ -470,12 +469,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
         <label class="fl">Domaine / Matière</label>
         <input class="fi" type="text" id="fDomain" list="domList" placeholder="Ex : Mathématiques" oninput="autoColor()">
         <datalist id="domList">
-          <option>Mathématiques</option><option>Grammaire et orthographe</option>
-          <option>Lecture</option><option>Écriture</option>
-          <option>Production d'écrit</option><option>Éducation physique et sportive</option>
-          <option>Langue vivante</option><option>Arts plastiques</option>
-          <option>Éducation musicale</option><option>EMC</option><option>Sciences</option>
-          <option>Compétences transversales</option>
+          <option>Français</option>
+          <option>Mathématiques</option>
+          <option>Langue vivante</option>
+          <option>Enseignements artistiques</option>
+          <option>Éducation physique et sportive</option>
+          <option>Questionner le monde</option>
+          <option>Enseignement moral et civique (EMC)</option>
+          <option>Enseignement transversal</option>
         </datalist>
       </div>
       <div class="fg">
@@ -495,6 +496,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
       <!-- Couleur -->
       <div class="fg">
         <label class="fl">Couleur</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);margin-bottom:8px;cursor:pointer;user-select:none">
+          <input type="checkbox" id="fAutoColor" checked onchange="onAutoColorToggle()"> Couleur automatique (selon le domaine)
+        </label>
         <div class="swatches" id="swatches"></div>
       </div>
 
@@ -502,8 +506,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
       <div style="border:2px solid #3d5afe;border-radius:8px;overflow:hidden">
         <div style="background:#3d5afe;padding:6px 12px;display:flex;align-items:center;gap:6px">
           <span style="font-size:14px">🎯</span>
-          <span style="font-size:11px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.5px;flex:1">Objectifs</span>
-          <button type="button" class="btn btn-ghost btn-sm" style="background:rgba(255,255,255,.2);color:#fff;padding:3px 9px;font-size:11px" onclick="openRefPicker()">➕ Référentiel CE2</button>
+          <span style="font-size:11px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.5px">Objectifs</span>
         </div>
         <div style="padding:8px 10px;background:#fff">
           <textarea class="fta" id="fObjectif" placeholder="Ce que les élèves vont apprendre / savoir faire à l'issue de la séance…" rows="3" style="border:none;padding:0;box-shadow:none;min-height:56px"></textarea>
@@ -551,21 +554,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
     <h3 id="pickerTitle">Copier ce jour vers…</h3>
     <div class="picker-options" id="pickerOptions"></div>
     <button class="btn btn-ghost btn-sm" onclick="closePicker()">Annuler</button>
-  </div>
-</div>
-
-<!-- ══ RÉFÉRENTIEL PICKER ══════════════════════════════════════════════════ -->
-<div class="picker-overlay" id="refOverlay" onclick="if(event.target===this)closeRefPicker()">
-  <div class="picker-box" style="max-width:520px;max-height:80vh;display:flex;flex-direction:column">
-    <h3>➕ Compétences du référentiel CE2</h3>
-    <div class="fg" style="margin-bottom:10px">
-      <select class="fs-sel" id="refDiscipline" onchange="renderRefDomains()"></select>
-    </div>
-    <div id="refDomains" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:8px;padding-right:4px"></div>
-    <div style="display:flex;gap:8px;margin-top:12px">
-      <button class="btn btn-ghost btn-sm" onclick="closeRefPicker()" style="flex:1">Annuler</button>
-      <button class="btn btn-primary btn-sm" onclick="insertRefSelection()" style="flex:1">Insérer la sélection</button>
-    </div>
   </div>
 </div>
 
@@ -619,20 +607,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
           📥 Importer JSON<input type="file" accept=".json" style="display:none" onchange="importJSON(event)">
         </label>
         <button class="btn btn-danger btn-sm" onclick="resetAll()">🗑 Réinitialiser tout</button>
-      </div>
-    </div>
-    <div class="side-section">
-      <h3>☁️ Sauvegarde cloud</h3>
-      <div id="cloudLoggedOut" style="display:flex;flex-direction:column;gap:7px">
-        <input class="fi" type="email" id="cloudEmail" placeholder="votre@email.fr">
-        <button class="btn btn-ghost btn-sm" onclick="cloudLogin()">✉️ Recevoir un lien de connexion</button>
-        <div id="cloudLoginMsg" style="font-size:12px;color:var(--text2)"></div>
-      </div>
-      <div id="cloudLoggedIn" style="display:none;flex-direction:column;gap:7px">
-        <div style="font-size:12px;color:var(--text2)">Connecté : <strong id="cloudUserEmail"></strong></div>
-        <button class="btn btn-ghost btn-sm" onclick="cloudSave()">☁️ Sauvegarder en ligne</button>
-        <button class="btn btn-ghost btn-sm" onclick="cloudRestore()">☁️ Restaurer depuis le cloud</button>
-        <button class="btn btn-ghost btn-sm" onclick="cloudLogout()">🚪 Se déconnecter</button>
       </div>
     </div>
   </div>
@@ -693,6 +667,22 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
   </div>
 </div>
 
+<!-- ══ SEMAINIER MODAL ═════════════════════════════════════════════════════ -->
+<div class="imp-overlay" id="semOverlay" onclick="if(event.target===this)closeSemainier()">
+  <div class="imp-modal" style="max-width:820px;max-height:85vh;display:flex;flex-direction:column">
+    <div class="imp-modal-hd">
+      <span style="font-size:22px">📅</span>
+      <h3>Semainier — <span id="semWeekLabel"></span></h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeSemainier()">✕</button>
+    </div>
+    <div class="imp-modal-body" id="semBody" style="overflow-y:auto;flex:1"></div>
+    <div class="imp-modal-ft">
+      <button class="btn btn-ghost" onclick="closeSemainier()">Fermer</button>
+      <button class="btn btn-primary" onclick="exportSemainierWord()">📝 Exporter en Word</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
@@ -721,21 +711,61 @@ const SWATCHES = ['#9c27b0','#e91e8c','#e53935','#ff6f00','#1565c0',
 
 function colorForSubject(title, domain) {
   const s = ((title||'')+(domain||'')).toLowerCase();
-  if(s.includes('rituel')||s.includes('accueil')) return '#9c27b0';
+  if(s.includes('rituel')||s.includes('accueil')||s.includes('transversal')) return '#9c27b0';
   if(s.includes('calcul mental')) return '#ff6f00';
   if(s.includes('math')) return '#e53935';
   if(s.includes('lecture')||s.includes('fluence')||s.includes('compréhension')) return '#e91e8c';
   if(s.includes('production')||s.includes('rallye')) return '#455a64';
   if(s.includes('grammaire')||s.includes('orthographe')||s.includes('dictée')) return '#e91e8c';
+  // Domaine officiel "Français" (programmes 2025) saisi seul, sans mot-clé de sous-matière
+  if(s.includes('français')||s.includes('francais')) return '#e91e8c';
   if(s.includes('anglais')||s.includes('langue vivante')) return '#6a1b9a';
   if(s.includes('eps')||s.includes('sport')||s.includes('athlét')) return '#1565c0';
   if(s.includes('arts plastiques')) return '#e65100';
   if(s.includes('musique')||s.includes('inclusion')) return '#880e4f';
+  // Domaine officiel "Enseignements artistiques" (regroupe arts plastiques + éducation musicale)
+  if(s.includes('enseignements artistiques')||s.includes('artistique')) return '#00695c';
   if(s.includes('emc')||s.includes('conseil')) return '#1a237e';
   if(s.includes('science')||s.includes('qlm')||s.includes('vapeur')||s.includes('espace')) return '#2e7d32';
+  // Domaine officiel "Questionner le monde" (vivant/matière/objets + repérage temps/espace)
+  if(s.includes('questionner le monde')||s.includes('questionner')) return '#37474f';
   if(s.includes('écriture')||s.includes('ecriture')) return '#455a64';
   if(s.includes('plan de travail')) return '#c2185b';
   return '#546e7a';
+}
+
+// Couleur fixe associée à chaque domaine officiel (barre "Volumes" + couleur automatique des séances)
+const DOMAIN_COLORS = {
+  'Français': '#d32f2f',
+  'Mathématiques': '#1565c0',
+  'Langue vivante': '#ef6c00',
+  'Enseignements artistiques': '#8e24aa',
+  'Éducation physique et sportive': '#2e7d32',
+  'Questionner le monde': '#00897b',
+  'Enseignement moral et civique (EMC)': '#3949ab',
+  'Enseignement transversal': '#607d8b'
+};
+
+// Regroupe toute saisie du champ Domaine/Matière (domaine officiel OU sous-matière
+// type "Grammaire", "Conjugaison", "Lecture"...) vers l'un des 8 domaines officiels.
+// Sert uniquement au calcul des volumes horaires (renderSummary) : n'affecte jamais
+// le texte affiché sur la carte de séance, qui reste tel que saisi.
+function normalizeDomain(title, domain) {
+  const s = ((title||'')+(domain||'')).toLowerCase();
+  if(s.includes('rituel')||s.includes('accueil')||s.includes('transversal')||s.includes('plan de travail')) return 'Enseignement transversal';
+  if(s.includes('calcul mental')||s.includes('math')) return 'Mathématiques';
+  if(s.includes('lecture')||s.includes('fluence')||s.includes('compréhension')||
+     s.includes('production')||s.includes('rallye')||s.includes('grammaire')||
+     s.includes('orthographe')||s.includes('dictée')||s.includes('conjugaison')||
+     s.includes('vocabulaire')||s.includes('écriture')||s.includes('ecriture')||
+     s.includes('français')||s.includes('francais')) return 'Français';
+  if(s.includes('anglais')||s.includes('langue vivante')) return 'Langue vivante';
+  if(s.includes('eps')||s.includes('sport')||s.includes('athlét')) return 'Éducation physique et sportive';
+  if(s.includes('arts plastiques')||s.includes('musique')||s.includes('inclusion')||
+     s.includes('enseignements artistiques')||s.includes('artistique')) return 'Enseignements artistiques';
+  if(s.includes('emc')||s.includes('conseil')) return 'Enseignement moral et civique (EMC)';
+  if(s.includes('science')||s.includes('qlm')||s.includes('espace')||s.includes('questionner')) return 'Questionner le monde';
+  return domain || 'Autre';
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1010,308 +1040,6 @@ function seedWeek0() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// RÉFÉRENTIEL DE COMPÉTENCES CE2 (cycle 2)
-// Synthèse à partir des textes officiels Éduscol :
-// - Français / Mathématiques : attendus de fin d'année CE2, programme 2025 (BO du 31/10/2024)
-// - Anglais : repères annuels de progression cycle 2 (adossés au CECRL)
-// - EMC : repères annuels de progression cycle 2
-// - Questionner le monde / EPS / Arts plastiques / Éducation musicale : programme cycle 2,
-//   BO n°31 du 30/07/2020 (toujours en vigueur pour ces disciplines à ce jour)
-// Ces items sont une reformulation synthétique à visée pratique (rédaction Claude),
-// pas une reproduction du texte officiel — se reporter aux BO pour le texte intégral.
-// ════════════════════════════════════════════════════════════════════════════
-const REFERENTIEL_CE2 = {
-  "Français": [
-    { domaine: "Langage oral — Écouter et comprendre", items: [
-      "Maintenir une attention orientée vers un but d'écoute",
-      "Repérer et mémoriser les informations importantes d'un message oral",
-      "Reformuler ou résumer un texte entendu",
-      "Mémoriser le vocabulaire entendu dans un texte",
-      "Repérer ses difficultés de compréhension à l'oral",
-    ]},
-    { domaine: "Langage oral — Dire, s'exprimer", items: [
-      "Organiser son discours pour se faire comprendre",
-      "Adapter le volume et le débit de sa voix à la situation",
-      "Mémoriser et dire un texte à voix haute",
-      "Expliquer sa démarche, sa production, son raisonnement",
-    ]},
-    { domaine: "Langage oral — Participer à des échanges", items: [
-      "Respecter les règles régulant la prise de parole",
-      "Organiser son propos à l'aide de connecteurs",
-      "Utiliser un lexique de plus en plus varié à l'oral",
-      "Adopter un langage de plus en plus soutenu face à un auditoire",
-      "Adopter une distance critique sur sa propre parole et celle d'un pair",
-    ]},
-    { domaine: "Lecture — Identifier des mots", items: [
-      "Établir les correspondances graphophonologiques et décoder des mots inconnus",
-      "Reconnaître directement les mots fréquents et irréguliers",
-      "Lire avec fluidité (environ 90 mots/minute en fin de CE2)",
-    ]},
-    { domaine: "Lecture — Comprendre un texte", items: [
-      "Mettre en œuvre une démarche explicite de compréhension d'un texte",
-      "Faire des inférences à partir d'un texte",
-      "Justifier son interprétation en s'appuyant sur le texte",
-      "Repérer une rupture de compréhension et mettre en place une stratégie de récupération du sens",
-      "Participer à un débat interprétatif sur un texte lu",
-      "Comprendre un texte de 2 à 3 pages lu en autonomie",
-    ]},
-    { domaine: "Lecture — Pratiquer différentes formes de lecture", items: [
-      "Lire pour réaliser une tâche, s'informer, se documenter",
-      "Lire une histoire pour la comprendre et la raconter",
-      "Lire pour le plaisir et échanger sur ses lectures",
-    ]},
-    { domaine: "Lecture — Lire à voix haute", items: [
-      "Lire un texte en respectant la ponctuation",
-      "Adapter l'intonation et le rythme au sens du texte",
-      "Restituer les différences d'intonation selon l'état des personnages",
-    ]},
-    { domaine: "Écriture — Copier", items: [
-      "Copier un texte avec vitesse et exactitude croissantes",
-      "Utiliser des stratégies de copie (groupes de mots, mémorisation)",
-      "Relire sa copie pour vérifier sa conformité orthographique",
-    ]},
-    { domaine: "Écriture — Produire des écrits", items: [
-      "Identifier les caractéristiques d'un genre de texte",
-      "Planifier un écrit (organiser ses idées avant de rédiger)",
-      "Écrire un texte en respectant les contraintes du genre identifié",
-      "Rédiger des écrits variés dans toutes les disciplines",
-      "Utiliser des connecteurs logiques dans un texte écrit",
-    ]},
-    { domaine: "Écriture — Réviser et améliorer son écrit", items: [
-      "Repérer les dysfonctionnements d'un texte à la relecture (omissions, incohérences)",
-      "Exercer une vigilance orthographique sur son texte",
-      "Utiliser une grille ou un outil de relecture pour se corriger",
-      "Corriger un texte à l'aide du correcteur orthographique",
-    ]},
-    { domaine: "Étude de la langue — Lexique et vocabulaire", items: [
-      "Trouver des synonymes, antonymes, mots de la même famille",
-      "Consulter un article de dictionnaire",
-      "Distinguer les niveaux de langue familier, courant, soutenu",
-      "Identifier le sens d'un mot d'après son contexte",
-    ]},
-    { domaine: "Étude de la langue — Orthographe lexicale", items: [
-      "Mémoriser l'orthographe du vocabulaire fréquent et des mots invariables",
-      "Regrouper des mots par familles ou analogies morphologiques",
-      "Raisonner à partir de la morphologie pour orthographier un mot inconnu",
-    ]},
-    { domaine: "Étude de la langue — Grammaire de la phrase", items: [
-      "Identifier le sujet, le verbe et les compléments d'une phrase",
-      "Différencier les classes de mots (nom, déterminant, adjectif, verbe, pronom)",
-      "Reconnaître les types et formes de phrases",
-      "Utiliser la ponctuation de fin de phrase et le discours rapporté",
-    ]},
-    { domaine: "Étude de la langue — Orthographe grammaticale et conjugaison", items: [
-      "Réaliser les accords dans le groupe nominal (genre, nombre)",
-      "Identifier la relation sujet-verbe dans des situations simples",
-      "Conjuguer au présent, à l'imparfait, au futur et au passé composé (verbes usuels)",
-      "Trouver l'infinitif d'un verbe conjugué",
-    ]},
-  ],
-  "Mathématiques": [
-    { domaine: "Nombres — Dénombrer, comparer, ordonner", items: [
-      "Dénombrer, comparer, encadrer et ordonner des nombres jusqu'à 10 000",
-      "Utiliser les symboles =, < et >",
-      "Situer un nombre sur une droite graduée",
-      "Identifier la parité d'un nombre",
-      "Différencier chiffre des unités, dizaines, centaines, milliers",
-    ]},
-    { domaine: "Nombres — Nommer, lire, écrire, représenter", items: [
-      "Lire et écrire un nombre en chiffres et en lettres jusqu'à 10 000",
-      "Passer d'une représentation d'un nombre à une autre (décomposition, produit, somme)",
-      "Connaître la valeur des chiffres selon leur position",
-    ]},
-    { domaine: "Résolution de problèmes", items: [
-      "Résoudre un problème additif et/ou multiplicatif en une à trois étapes",
-      "Modéliser un problème à l'aide d'un schéma ou d'une écriture mathématique",
-      "Résoudre un problème de partage ou de groupement",
-      "Résoudre un problème à partir d'un tableau ou d'un graphique",
-    ]},
-    { domaine: "Calcul mental", items: [
-      "Connaître les doubles et moitiés des nombres usuels",
-      "Connaître les tables d'addition et de multiplication (2 à 9)",
-      "Calculer mentalement des sommes, différences et produits",
-      "Trouver rapidement un complément à la dizaine, la centaine, au millier",
-      "Estimer un ordre de grandeur pour vérifier un résultat",
-    ]},
-    { domaine: "Calcul en ligne et calcul posé", items: [
-      "Calculer en ligne une somme ou une différence de grands nombres",
-      "Poser et calculer une addition ou une soustraction en colonnes",
-      "Poser et calculer une multiplication à un ou deux chiffres",
-      "Utiliser la commutativité de l'addition et de la multiplication",
-    ]},
-    { domaine: "Grandeurs — Longueurs", items: [
-      "Mesurer et tracer un segment avec une règle graduée (mm, cm, dm, m)",
-      "Choisir l'unité de longueur adaptée à une situation",
-      "Estimer un ordre de grandeur d'une longueur",
-    ]},
-    { domaine: "Grandeurs — Masses et contenances", items: [
-      "Comparer des masses et utiliser une balance",
-      "Choisir l'unité de masse adaptée (g, kg, t)",
-      "Mesurer une contenance en L, dL, cL",
-    ]},
-    { domaine: "Grandeurs — Dates et durées", items: [
-      "Lire l'heure sur une horloge à aiguilles et un affichage digital",
-      "Connaître les unités de mesure de durées et leurs relations",
-      "Estimer et calculer une durée",
-    ]},
-    { domaine: "Grandeurs — Résoudre des problèmes de grandeurs", items: [
-      "Résoudre un problème impliquant longueurs, masses, contenances ou durées",
-      "Résoudre un problème avec de la monnaie (rendre la monnaie, calculer un prix)",
-    ]},
-    { domaine: "Espace — Se repérer et se déplacer", items: [
-      "Situer des objets les uns par rapport aux autres avec un vocabulaire spatial précis",
-      "Coder ou suivre un déplacement (avancer, tourner, reculer)",
-      "Se repérer sur un plan et suivre un itinéraire",
-    ]},
-    { domaine: "Géométrie — Solides", items: [
-      "Nommer et décrire les solides usuels (cube, pavé, cône, cylindre, pyramide, boule)",
-      "Décrire un solide avec le vocabulaire face, sommet, arête",
-      "Fabriquer un solide à partir d'un patron ou d'assemblage",
-    ]},
-    { domaine: "Géométrie — Figures planes", items: [
-      "Nommer et décrire carré, rectangle, triangle, cercle",
-      "Reproduire une figure avec règle, équerre et compas",
-      "Reconnaître et tracer un angle droit",
-      "Reconnaître et compléter une figure symétrique",
-    ]},
-  ],
-  "Anglais": [
-    { domaine: "Compréhension de l'oral", items: [
-      "Reconnaître des mots familiers dans un énoncé court et clair (comptine, chanson, dialogue)",
-      "Comprendre des consignes de classe simples",
-      "Associer un document oral à une image",
-      "Suivre le fil d'une histoire courte et étayée",
-    ]},
-    { domaine: "Compréhension de l'écrit", items: [
-      "Reconnaître des mots familiers accompagnés d'images",
-      "Comprendre un message écrit court et illustré (carte, courriel, annonce)",
-      "Trouver une information simple dans un texte court (lieu, date, prix)",
-    ]},
-    { domaine: "Expression orale en continu", items: [
-      "Reproduire un modèle oral (répéter, réciter)",
-      "Se présenter avec des mots et expressions mémorisés",
-      "Décrire brièvement une personne, un objet ou un animal familier",
-      "Raconter une histoire très brève à l'aide d'images",
-    ]},
-    { domaine: "Expression orale en interaction", items: [
-      "Saluer, se présenter et prendre congé",
-      "Poser et répondre à des questions simples sur un sujet familier",
-      "Exprimer un sentiment ou une émotion simple",
-      "Demander de répéter ou de clarifier un mot",
-    ]},
-    { domaine: "Expression écrite", items: [
-      "Copier des mots ou expressions connus",
-      "Écrire sous la dictée quelques mots isolés déjà mémorisés",
-      "Compléter un questionnaire très simple",
-    ]},
-    { domaine: "Culture et médiation", items: [
-      "Identifier une similitude ou une différence culturelle",
-      "Repérer une information dans un support visuel (affiche, pictogramme)",
-    ]},
-  ],
-  "EMC": [
-    { domaine: "La sensibilité — Soi et les autres", items: [
-      "Écouter l'autre et respecter les tours de parole",
-      "Utiliser les formules de politesse adaptées",
-      "Adopter un comportement approprié en classe et dans l'école",
-      "Connaître les droits de l'enfant à travers des exemples simples",
-    ]},
-    { domaine: "Le droit et la règle", items: [
-      "Connaître les règles élémentaires d'hygiène personnelle et collective",
-      "Identifier les principaux services d'urgence (SAMU, police, pompiers)",
-      "Être sensibilisé aux gestes de premiers secours",
-      "Aborder la notion de discrimination à travers des exemples",
-    ]},
-    { domaine: "Le jugement — Penser par soi-même et avec les autres", items: [
-      "Distinguer les différents supports d'information (presse, radio, TV, internet)",
-      "Identifier et remobiliser une information issue d'un support adapté",
-    ]},
-    { domaine: "L'engagement — Agir individuellement et collectivement", items: [
-      "Expérimenter la prise de décision à la majorité dans la classe",
-      "Identifier les responsables élus de la commune (maire, conseillers)",
-      "Connaître les symboles de la République (drapeau, Marseillaise, devise, 14 juillet)",
-      "Savoir que voter est un droit et connaître le suffrage universel",
-    ]},
-  ],
-  "Questionner le monde": [
-    { domaine: "Le vivant", items: [
-      "Connaître des caractéristiques du monde vivant, ses interactions, sa diversité",
-      "Reconnaître des comportements favorables à sa santé",
-    ]},
-    { domaine: "La matière", items: [
-      "Identifier les trois états de la matière et observer des changements d'état",
-      "Identifier un changement d'état de l'eau dans un phénomène du quotidien",
-    ]},
-    { domaine: "Les objets techniques", items: [
-      "Comprendre la fonction et le fonctionnement d'un objet fabriqué",
-      "Réaliser un objet ou un circuit électrique simple en sécurité",
-      "Commencer à s'approprier un environnement numérique",
-    ]},
-    { domaine: "Se repérer dans l'espace", items: [
-      "Se repérer dans l'espace et le représenter (plan, maquette)",
-      "Situer un lieu sur une carte, un globe ou un écran",
-    ]},
-    { domaine: "Se repérer dans le temps", items: [
-      "Se repérer dans le temps et mesurer des durées",
-      "Repérer et situer un événement dans un temps long (frise historique)",
-      "Comparer des modes de vie à différentes époques",
-    ]},
-  ],
-  "E.P.S.": [
-    { domaine: "Produire une performance mesurée (courir, sauter, lancer)", items: [
-      "Courir vite sur une distance courte (course de vitesse)",
-      "Courir longtemps à allure régulière",
-      "Sauter loin ou haut en optimisant son élan et son impulsion",
-      "Lancer loin ou précisément avec un engin adapté",
-    ]},
-    { domaine: "Adapter ses déplacements à des environnements variés", items: [
-      "Se déplacer dans un environnement inhabituel (eau, milieu naturel)",
-      "Adapter son équilibre et ses appuis à un parcours varié",
-    ]},
-    { domaine: "S'exprimer par une prestation artistique et/ou acrobatique", items: [
-      "Réaliser un enchaînement d'actions maîtrisées (gymnastique, danse)",
-      "Exprimer des sensations et des émotions par le mouvement",
-      "Observer et apprécier une prestation d'un camarade",
-    ]},
-    { domaine: "Conduire et maîtriser un affrontement collectif ou interindividuel", items: [
-      "Coopérer avec des partenaires pour affronter collectivement des adversaires",
-      "Respecter les règles d'un jeu collectif ou d'un duel",
-      "Adapter son attitude (attaquant/défenseur) à la situation de jeu",
-    ]},
-  ],
-  "Arts plastiques": [
-    { domaine: "Production plastique", items: [
-      "Réaliser et donner à voir une production plastique individuelle ou collective",
-      "Expérimenter des matériaux, supports et outils variés",
-      "Faire preuve d'inventivité dans une réponse à une consigne ouverte",
-    ]},
-    { domaine: "Vocabulaire et démarche", items: [
-      "Décrire et commenter sa production ou celle d'un pair",
-      "Utiliser un vocabulaire plastique simple pour s'exprimer",
-      "Découvrir une œuvre et exprimer un ressenti argumenté",
-    ]},
-  ],
-  "Éducation musicale": [
-    { domaine: "Chanter", items: [
-      "Interpréter un chant avec expressivité (phrasé, articulation)",
-      "Mémoriser et chanter un répertoire varié",
-    ]},
-    { domaine: "Écouter, comparer", items: [
-      "Décrire et comparer des éléments sonores d'une œuvre écoutée",
-      "Identifier une caractéristique musicale simple (rythme, intensité, timbre)",
-    ]},
-    { domaine: "Explorer, imaginer", items: [
-      "Explorer les sons de la voix et des objets sonores",
-      "Inventer une courte séquence rythmique ou mélodique",
-    ]},
-    { domaine: "Échanger, partager", items: [
-      "Exprimer ses ressentis face à un extrait musical",
-      "Écouter et respecter la production musicale des autres",
-    ]},
-  ],
-};
-
-// ════════════════════════════════════════════════════════════════════════════
 // STATE
 // ════════════════════════════════════════════════════════════════════════════
 let state = JSON.parse(localStorage.getItem('cj_v3') || 'null') || {
@@ -1327,6 +1055,7 @@ let currentWeek = 0;
 let editing = null; // {weekKey, dayIndex, seanceIndex} or null for new
 let editBlocks = []; // current blocks in editor
 let editMaterials = [];
+let currentSeanceColor = null; // couleur actuellement sélectionnée dans la modale de séance
 let dragCard = null;
 let dragBlock = null;
 let pickerCallback = null;
@@ -1394,8 +1123,8 @@ function renderSummary() {
   days.forEach(day => {
     ((state.weeks[wk]||{})[day.dayIndex]||[]).forEach(s => {
       if(s.type==='break') return;
-      const k = s.domain||'Autre';
-      if(!totals[k]) totals[k] = {color:s.color,mins:0};
+      const k = normalizeDomain(s.title, s.domain);
+      if(!totals[k]) totals[k] = {color:DOMAIN_COLORS[k]||s.color,mins:0};
       const d = t2m(s.end)-t2m(s.start);
       if(!isNaN(d)) totals[k].mins += d;
     });
@@ -1436,7 +1165,6 @@ function renderGrid() {
           <button class="day-hd-btn" title="Importer depuis PDF" onclick="openPdfImport('${wk}',${day.dayIndex})">📄</button>
           <button class="day-hd-btn" title="Copier ce jour" onclick="openCopyDay('${wk}',${day.dayIndex})">📋</button>
           <button class="day-hd-btn" title="Ajouter séance" onclick="openNew('${wk}',${day.dayIndex})">+</button>
-          <button class="day-hd-btn" title="Supprimer toute la journée" onclick="deleteDay('${wk}',${day.dayIndex})">🗑</button>
         </div>
       </div>
       <div class="day-body" id="db_${day.dayIndex}"></div>`;
@@ -1641,48 +1369,6 @@ function showPicker(title, opts) {
 function closePicker() { document.getElementById('pickerOverlay').classList.remove('open'); }
 
 // ════════════════════════════════════════════════════════════════════════════
-// RÉFÉRENTIEL PICKER
-// ════════════════════════════════════════════════════════════════════════════
-function openRefPicker() {
-  const sel = document.getElementById('refDiscipline');
-  if (!sel.dataset.filled) {
-    sel.innerHTML = Object.keys(REFERENTIEL_CE2).map(d => `<option value="${d}">${d}</option>`).join('');
-    sel.dataset.filled = '1';
-  }
-  renderRefDomains();
-  document.getElementById('refOverlay').classList.add('open');
-}
-function closeRefPicker() { document.getElementById('refOverlay').classList.remove('open'); }
-
-function renderRefDomains() {
-  const discipline = document.getElementById('refDiscipline').value;
-  const domains = REFERENTIEL_CE2[discipline] || [];
-  const wrap = document.getElementById('refDomains');
-  wrap.innerHTML = domains.map((dom, di) => `
-    <details ${di===0?'open':''} style="border:1px solid var(--border);border-radius:8px;padding:8px 10px">
-      <summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:var(--text2)">${dom.domaine}</summary>
-      <div style="display:flex;flex-direction:column;gap:5px;margin-top:8px">
-        ${dom.items.map((it, ii) => `
-          <label style="display:flex;align-items:flex-start;gap:7px;font-size:12.5px;cursor:pointer;line-height:1.4">
-            <input type="checkbox" data-ref-item value="${encodeURIComponent(it)}" style="margin-top:2px">
-            <span>${it}</span>
-          </label>`).join('')}
-      </div>
-    </details>`).join('');
-}
-
-function insertRefSelection() {
-  const checked = Array.from(document.querySelectorAll('#refDomains input[data-ref-item]:checked'))
-    .map(cb => decodeURIComponent(cb.value));
-  if (!checked.length) { closeRefPicker(); return; }
-  const ta = document.getElementById('fObjectif');
-  const bullets = checked.map(t => '• '+t).join('\n');
-  ta.value = ta.value.trim() ? ta.value.trim() + '\n' + bullets : bullets;
-  closeRefPicker();
-  toast(checked.length>1 ? checked.length+' compétences ajoutées ✓' : 'Compétence ajoutée ✓','ok');
-}
-
-// ════════════════════════════════════════════════════════════════════════════
 // SEANCE EDITOR MODAL
 // ════════════════════════════════════════════════════════════════════════════
 function openNew(wk, dayIndex) {
@@ -1719,7 +1405,12 @@ function populateModal(s) {
   renderTags();
 
   // color
-  buildSwatches(s?.color || colorForSubject(s?.title||'', s?.domain||''));
+  const autoOn = s ? (s.autoColor !== false) : true;
+  document.getElementById('fAutoColor').checked = autoOn;
+  currentSeanceColor = s?.color || (autoOn
+    ? (DOMAIN_COLORS[normalizeDomain(s?.title||'', s?.domain||'')] || colorForSubject(s?.title||'', s?.domain||''))
+    : colorForSubject(s?.title||'', s?.domain||''));
+  buildSwatches(currentSeanceColor);
   updateColorBar();
 
   document.getElementById('fsOverlay').classList.add('open');
@@ -1734,13 +1425,19 @@ function overlayClick(e) { if(e.target===document.getElementById('fsOverlay')) c
 
 function onTitleChange() { autoColor(); }
 function autoColor() {
+  if(!document.getElementById('fAutoColor').checked) return; // couleur manuelle : ne rien recalculer
   const t = document.getElementById('fTitle').value;
   const d = document.getElementById('fDomain').value;
-  const c = colorForSubject(t, d);
-  // only auto if nothing manually chosen, or we just set it
-  const cur = getSelectedColor();
-  if(!cur) setSelectedColor(c);
+  const c = DOMAIN_COLORS[normalizeDomain(t,d)] || colorForSubject(t,d);
+  currentSeanceColor = c;
+  buildSwatches(c);
   updateColorBar();
+}
+function onAutoColorToggle() {
+  if(document.getElementById('fAutoColor').checked) {
+    autoColor(); // ré-applique immédiatement la couleur du domaine
+  }
+  // si décochée : on garde la couleur actuelle, l'utilisateur peut cliquer une pastille
 }
 function updateDur() {
   document.getElementById('fDur').value = dur(
@@ -1749,7 +1446,7 @@ function updateDur() {
   );
 }
 function updateColorBar() {
-  const c = getSelectedColor() || '#546e7a';
+  const c = currentSeanceColor || '#546e7a';
   document.getElementById('fsColorBar').style.background = c;
 }
 
@@ -1874,16 +1571,18 @@ function buildSwatches(selected) {
     sw.onclick = () => {
       document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('sel'));
       sw.classList.add('sel');
+      currentSeanceColor = c;
+      document.getElementById('fAutoColor').checked = false; // choix manuel = on sort du mode auto
       updateColorBar();
     };
     wrap.appendChild(sw);
   });
 }
 function getSelectedColor() {
-  const sel = document.querySelector('.swatch.sel');
-  return sel ? sel.style.background : null;
+  return currentSeanceColor;
 }
 function setSelectedColor(c) {
+  currentSeanceColor = c;
   document.querySelectorAll('.swatch').forEach(s => {
     s.classList.toggle('sel', s.style.background===c);
   });
@@ -1925,17 +1624,22 @@ function saveSeance() {
     if(ta && editBlocks[i]) editBlocks[i].text = ta.value;
   });
 
-  const color = getSelectedColor() || colorForSubject(title, document.getElementById('fDomain').value);
+  const autoColorOn = document.getElementById('fAutoColor').checked;
+  const domainVal = document.getElementById('fDomain').value;
+  const color = autoColorOn
+    ? (DOMAIN_COLORS[normalizeDomain(title, domainVal)] || colorForSubject(title, domainVal))
+    : (currentSeanceColor || colorForSubject(title, domainVal));
   const seance = {
     id: uid(), type:'seance',
     start: document.getElementById('fStart').value,
     end: document.getElementById('fEnd').value,
     title,
-    domain: document.getElementById('fDomain').value,
+    domain: domainVal,
     notion: document.getElementById('fNotion').value,
     lieu: document.getElementById('fLieu').value,
     objectif: document.getElementById('fObjectif').value,
     color,
+    autoColor: autoColorOn,
     materials: [...editMaterials],
     blocks: deepClone(editBlocks),
     notes: document.getElementById('fNotes').value,
@@ -1979,17 +1683,6 @@ function dupSeance(wk, di, si) {
   state.weeks[wk][di].splice(si+1,0,copy);
   saveLocal(false); renderAll();
   toast('Séance dupliquée ✓','ok');
-}
-
-function deleteDay(wk, di) {
-  di = parseInt(di);
-  const seances = (state.weeks[wk] && state.weeks[wk][di]) || [];
-  if(!seances.length) { toast('Cette journée est déjà vide','inf'); return; }
-  const dayName = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi'][di];
-  if(!confirm(`Supprimer toutes les séances de ${dayName} ? Cette action est irréversible.`)) return;
-  state.weeks[wk][di] = [];
-  saveLocal(false); renderAll();
-  toast('Journée supprimée','inf');
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2045,72 +1738,6 @@ function resetAll() {
   state.weeks['0'] = seedWeek0();
   currentWeek = 0; saveLocal(false); renderAll();
   toast('Réinitialisé','inf');
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// CLOUD (SUPABASE)
-// ════════════════════════════════════════════════════════════════════════════
-const SUPABASE_URL = 'https://ebztgvcdtzglnyafuwwa.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_q6XIK-6lt1HHOHr2xTas1w_oOrokYbB';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-function updateCloudUI(session) {
-  const out = document.getElementById('cloudLoggedOut');
-  const inn = document.getElementById('cloudLoggedIn');
-  if (!out || !inn) return;
-  if (session) {
-    out.style.display = 'none';
-    inn.style.display = 'flex';
-    document.getElementById('cloudUserEmail').textContent = session.user.email;
-  } else {
-    out.style.display = 'flex';
-    inn.style.display = 'none';
-  }
-}
-
-sb.auth.getSession().then(({data}) => updateCloudUI(data.session));
-sb.auth.onAuthStateChange((_event, session) => updateCloudUI(session));
-
-async function cloudLogin() {
-  const emailInput = document.getElementById('cloudEmail');
-  const email = emailInput.value.trim();
-  if (!email) { toast('Merci de saisir un email','err'); return; }
-  const msg = document.getElementById('cloudLoginMsg');
-  msg.textContent = 'Envoi en cours…';
-  const redirectTo = window.location.href.split('#')[0].split('?')[0];
-  const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
-  if (error) { msg.textContent = ''; toast('Erreur : '+error.message,'err'); }
-  else { msg.textContent = 'Lien envoyé ! Vérifiez votre boîte mail.'; toast('Lien de connexion envoyé ✓','ok'); }
-}
-
-async function cloudLogout() {
-  await sb.auth.signOut();
-  toast('Déconnecté du cloud','inf');
-}
-
-async function cloudSave() {
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) { toast('Connectez-vous d\'abord','err'); return; }
-  toast('Sauvegarde en cours…','inf');
-  const { error } = await sb.from('cahier_journal_backup').insert({ data: state });
-  if (error) toast('Erreur cloud : '+error.message,'err');
-  else toast('Sauvegardé dans le cloud ✓','ok');
-}
-
-async function cloudRestore() {
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) { toast('Connectez-vous d\'abord','err'); return; }
-  const { data, error } = await sb.from('cahier_journal_backup')
-    .select('data, created_at')
-    .order('created_at', { ascending: false })
-    .limit(1);
-  if (error) { toast('Erreur cloud : '+error.message,'err'); return; }
-  if (!data || !data.length) { toast('Aucune sauvegarde cloud trouvée','inf'); return; }
-  const when = new Date(data[0].created_at).toLocaleString('fr-FR');
-  if (!confirm('Restaurer la sauvegarde cloud du '+when+' ?\nCela remplacera les données locales actuelles.')) return;
-  state = data[0].data;
-  saveLocal(false); renderAll();
-  toast('Restauré depuis le cloud ✓','ok');
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2273,6 +1900,175 @@ function impDoImport() {
 // ════════════════════════════════════════════════════════════════════════════
 // EXPORT WORD
 // ════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════
+// SEMAINIER (créneaux / domaines / objectifs uniquement)
+// ════════════════════════════════════════════════════════════════════════════
+function getSemainierEntries(wi) {
+  const wk = String(wi);
+  const days = getWeekDates(wi);
+  const dayNames = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi'];
+  return days.map(day => {
+    const seances = ((state.weeks[wk]||{})[day.dayIndex]||[])
+      .filter(s => s.type !== 'break')
+      .slice()
+      .sort((a,b) => t2m(a.start) - t2m(b.start));
+    return { dayName: dayNames[day.dayIndex], date: day.date, seances };
+  });
+}
+
+function openSemainier() {
+  renderSemainier();
+  document.getElementById('semOverlay').classList.add('open');
+}
+function closeSemainier() {
+  document.getElementById('semOverlay').classList.remove('open');
+}
+
+function renderSemainier() {
+  document.getElementById('semWeekLabel').textContent = getWeekLabel(currentWeek);
+  const body = document.getElementById('semBody');
+  body.innerHTML = '';
+  getSemainierEntries(currentWeek).forEach(day => {
+    const sec = document.createElement('div');
+    sec.style.marginBottom = '18px';
+
+    const hd = document.createElement('div');
+    hd.style.cssText = 'font-size:13px;font-weight:700;color:var(--text1);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--border)';
+    hd.textContent = day.dayName + '  ' + day.date;
+    sec.appendChild(hd);
+
+    if(!day.seances.length) {
+      const p = document.createElement('div');
+      p.style.cssText = 'font-size:12px;color:var(--text3);font-style:italic;padding:4px 0';
+      p.textContent = 'Aucune séance';
+      sec.appendChild(p);
+    } else {
+      day.seances.forEach(s => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)';
+
+        const time = document.createElement('div');
+        time.style.cssText = 'min-width:95px;font-size:12px;font-weight:700;color:' + (s.color||'#546e7a');
+        time.textContent = (s.start||'') + (s.end ? ' → '+s.end : '');
+
+        const content = document.createElement('div');
+        content.style.cssText = 'flex:1';
+
+        const dom = document.createElement('div');
+        dom.style.cssText = 'font-size:12.5px;font-weight:600;color:var(--text1)';
+        dom.textContent = [s.domain, s.notion].filter(Boolean).join(' · ') || s.title || 'Sans titre';
+        content.appendChild(dom);
+
+        if(s.objectif) {
+          const obj = document.createElement('div');
+          obj.style.cssText = 'font-size:12px;color:var(--text2);font-style:italic;margin-top:2px';
+          obj.textContent = '🎯 ' + s.objectif;
+          content.appendChild(obj);
+        }
+
+        row.appendChild(time);
+        row.appendChild(content);
+        sec.appendChild(row);
+      });
+    }
+    body.appendChild(sec);
+  });
+}
+
+async function exportSemainierWord() {
+  if(typeof docx === 'undefined') {
+    toast('Bibliothèque Word non chargée — vérifiez votre connexion','inf'); return;
+  }
+  toast('Génération du semainier…','inf');
+
+  const {
+    Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+    AlignmentType, BorderStyle, WidthType, ShadingType, VerticalAlign
+  } = docx;
+
+  const weekLabel = getWeekLabel(currentWeek);
+  const data = getSemainierEntries(currentWeek);
+  const hex = c => (c||'546e7a').replace('#','');
+  const border = { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' };
+  const borders = { top:border, bottom:border, left:border, right:border };
+  const PAGE_W = 10204;
+
+  const children = [];
+  children.push(new Paragraph({
+    children: [new TextRun({ text: 'Semainier — ' + weekLabel, bold:true, size:32, color:'3d5afe', font:'Arial' })],
+    spacing: { after: 220 }
+  }));
+
+  data.forEach(day => {
+    children.push(new Paragraph({
+      children: [new TextRun({ text: day.dayName + '  ' + day.date, bold:true, size:24, color:'FFFFFF', font:'Arial' })],
+      shading: { fill:'3d5afe', type:ShadingType.CLEAR },
+      spacing: { before:160, after:100 }
+    }));
+
+    if(!day.seances.length) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text:'Aucune séance', italics:true, color:'999999', size:20, font:'Arial' })],
+        spacing: { after:120 }
+      }));
+      return;
+    }
+
+    const rows = day.seances.map(s => {
+      const timeStr = (s.start||'') + (s.end ? ' → '+s.end : '');
+      const domTxt = [s.domain, s.notion].filter(Boolean).join(' · ') || s.title || 'Sans titre';
+      return new TableRow({ children: [
+        new TableCell({
+          borders,
+          width: { size:1600, type:WidthType.DXA },
+          shading: { fill: hex(s.color), type:ShadingType.CLEAR },
+          verticalAlign: VerticalAlign.CENTER,
+          margins: { top:60, bottom:60, left:100, right:80 },
+          children: [new Paragraph({ alignment:AlignmentType.CENTER, children:[
+            new TextRun({ text:timeStr, bold:true, color:'FFFFFF', size:16, font:'Arial' })
+          ]})]
+        }),
+        new TableCell({
+          borders,
+          width: { size:PAGE_W-1600, type:WidthType.DXA },
+          margins: { top:60, bottom:60, left:140, right:120 },
+          children: [
+            new Paragraph({ children:[new TextRun({ text:domTxt, bold:true, size:19, font:'Arial', color:'111111' })] }),
+            s.objectif ? new Paragraph({ children:[
+              new TextRun({ text:'🎯 ', size:17 }),
+              new TextRun({ text:s.objectif, italics:true, size:17, color:'444444', font:'Arial' })
+            ]}) : new Paragraph({children:[]})
+          ]
+        })
+      ]});
+    });
+
+    children.push(new Table({ width:{size:PAGE_W,type:WidthType.DXA}, columnWidths:[1600, PAGE_W-1600], rows }));
+    children.push(new Paragraph({ children:[], spacing:{after:160} }));
+  });
+
+  const doc = new Document({
+    styles: { default: { document: { run: { font:'Arial', size:20 } } } },
+    sections: [{
+      properties: { page: { size:{width:11906,height:16838}, margin:{top:851,right:851,bottom:851,left:851} } },
+      children
+    }]
+  });
+
+  try {
+    const buffer = await Packer.toBlob(doc);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(buffer);
+    const safeLabel = weekLabel.replace(/[^\w\s\-]/g,'').trim().replace(/\s+/g,'_');
+    a.download = 'semainier_' + safeLabel + '.docx';
+    a.click();
+    toast('Semainier exporté ✓','ok');
+  } catch(e) {
+    console.error(e);
+    toast('Erreur export semainier : ' + e.message, 'inf');
+  }
+}
+
 async function exportWord() {
   if(typeof docx === 'undefined') {
     toast('Bibliothèque Word non chargée — vérifiez votre connexion','inf'); return;
