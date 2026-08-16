@@ -1523,11 +1523,12 @@ function makeBlockEl(b, i) {
       </div>
     </div>
     <div class="block-content">
-      <textarea placeholder="${bt.ph}" oninput="editBlocks[${i}].text=this.value;autoResize(this)">${b.text||''}</textarea>
+      <textarea draggable="false" placeholder="${bt.ph}" oninput="editBlocks[${i}].text=this.value;autoResize(this)" ondblclick="this.select()">${b.text||''}</textarea>
     </div>`;
 
   // block drag
   wrap.addEventListener('dragstart', e => {
+    if(e.target.closest('.block-content')) { e.preventDefault(); return; } // ne pas capter les clics dans le texte
     dragBlock = i;
     wrap.classList.add('dragging-block');
     e.stopPropagation();
