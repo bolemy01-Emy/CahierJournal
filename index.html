@@ -105,13 +105,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .day-hd-btn{background:rgba(255,255,255,.2);border:none;color:#fff;width:26px;height:26px;
   border-radius:5px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:background .1s}
 .day-hd-btn:hover{background:rgba(255,255,255,.38)}
-.day-body{padding:7px;display:flex;flex-direction:column;gap:3px;min-height:300px;max-height:calc(100vh - 260px);overflow-y:auto}
+.day-body{padding:7px;display:flex;flex-direction:column;gap:3px;min-height:300px}
 
 /* ══════════════════════════════════════════════════
    SEANCE CARD (compact view)
 ══════════════════════════════════════════════════ */
 .card{border-radius:var(--r-sm);overflow:hidden;cursor:pointer;border:1.5px solid transparent;
-  transition:all .15s;user-select:none;position:relative}
+  transition:all .15s;user-select:none;position:relative;flex-shrink:0}
 .card:hover{transform:translateY(-1px);box-shadow:var(--sh-lg)}
 .card.dragging{opacity:.45;transform:scale(.96)}
 .card.drag-over{border-color:var(--accent)!important;box-shadow:0 0 0 2px var(--accent-light)}
@@ -340,10 +340,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
   .print-block-label{font-size:8px;font-weight:700;margin-bottom:1px}
 
   /* matériel print */
-  .print-material{font-size:9px;color:#444;margin-top:2px}
+  .print-material{display:block!important;font-size:9px;color:#444;margin-top:2px}
 
   /* objectif print */
-  .print-objectif{font-size:9px;font-weight:600;color:#333;margin-top:2px;font-style:italic}
+  .print-objectif{display:block!important;font-size:9px;font-weight:600;color:#333;margin-top:2px;font-style:italic}
 }
 
 /* ══════════════════════════════════════════════════
@@ -609,6 +609,23 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
         <button class="btn btn-danger btn-sm" onclick="resetAll()">🗑 Réinitialiser tout</button>
       </div>
     </div>
+    <div class="side-section">
+      <h3>☁️ Sauvegarde cloud</h3>
+      <div id="cloudLoggedOut" style="display:flex;flex-direction:column;gap:7px">
+        <input class="fi" type="email" id="cloudEmail" placeholder="votre@email.fr" value="bolemy01@gmail.com">
+        <button class="btn btn-ghost btn-sm" onclick="cloudSendLink()">📧 Recevoir un lien de connexion</button>
+        <div id="cloudMsg" style="font-size:11px;color:var(--text3)"></div>
+      </div>
+      <div id="cloudLoggedIn" style="display:none;flex-direction:column;gap:7px">
+        <div id="cloudEmailDisplay" style="font-size:12px;color:var(--text2)"></div>
+        <button class="btn btn-ghost btn-sm" onclick="cloudSave()">☁️ Sauvegarder en ligne</button>
+        <button class="btn btn-ghost btn-sm" onclick="cloudRestore()">⬇️ Restaurer depuis le cloud</button>
+        <button class="btn btn-ghost btn-sm" onclick="cloudLogout()">🚪 Se déconnecter</button>
+      </div>
+      <div id="cloudUnavailable" style="display:none;font-size:11px;color:#e53935">
+        ⚠️ Connexion au service cloud impossible (vérifiez votre connexion internet et rechargez la page).
+      </div>
+    </div>
   </div>
 </div>
 
@@ -686,6 +703,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // ════════════════════════════════════════════════════════════════════════════
 // BLOCK TYPE DEFINITIONS
@@ -1741,6 +1759,112 @@ function resetAll() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// SAUVEGARDE CLOUD (Supabase)
+// ════════════════════════════════════════════════════════════════════════════
+const SUPABASE_URL = 'https://ebztgvcdtzglnyafuwwa.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_q6XIK-6lt1HHOHr2xTas1w_oOrokYbB';
+
+let sb = null;
+try {
+  if (typeof supabase !== 'undefined' && supabase.createClient) {
+    sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+} catch (e) {
+  console.error('Erreur initialisation Supabase :', e);
+}
+
+function updateCloudUI(session) {
+  const loggedOut = document.getElementById('cloudLoggedOut');
+  const loggedIn = document.getElementById('cloudLoggedIn');
+  const unavailable = document.getElementById('cloudUnavailable');
+  if (!sb) {
+    if (loggedOut) loggedOut.style.display = 'none';
+    if (loggedIn) loggedIn.style.display = 'none';
+    if (unavailable) unavailable.style.display = 'block';
+    return;
+  }
+  if (session) {
+    if (loggedOut) loggedOut.style.display = 'none';
+    if (loggedIn) loggedIn.style.display = 'flex';
+    if (unavailable) unavailable.style.display = 'none';
+    const disp = document.getElementById('cloudEmailDisplay');
+    if (disp) disp.textContent = 'Connecté : ' + (session.user?.email || '');
+  } else {
+    if (loggedOut) loggedOut.style.display = 'flex';
+    if (loggedIn) loggedIn.style.display = 'none';
+    if (unavailable) unavailable.style.display = 'none';
+  }
+}
+
+async function cloudInit() {
+  if (!sb) { updateCloudUI(null); return; }
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    updateCloudUI(session);
+    sb.auth.onAuthStateChange((_event, session) => updateCloudUI(session));
+  } catch (e) {
+    console.error('Erreur session Supabase :', e);
+    updateCloudUI(null);
+  }
+}
+
+async function cloudSendLink() {
+  if (!sb) { toast('Service cloud indisponible','inf'); return; }
+  const email = document.getElementById('cloudEmail').value.trim();
+  const msg = document.getElementById('cloudMsg');
+  if (!email) { toast('Saisissez votre email','inf'); return; }
+  const redirectTo = window.location.href.split('#')[0];
+  try {
+    const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
+    if (error) { if(msg) msg.textContent=''; toast('Erreur : '+error.message,'inf'); }
+    else { if(msg) msg.textContent = 'Lien envoyé ! Vérifiez votre boîte mail (et les spams).'; toast('Lien de connexion envoyé ✓','ok'); }
+  } catch (e) {
+    toast('Erreur cloud : '+e.message,'inf');
+  }
+}
+
+async function cloudLogout() {
+  if (!sb) return;
+  try { await sb.auth.signOut(); toast('Déconnecté du cloud','inf'); }
+  catch (e) { toast('Erreur : '+e.message,'inf'); }
+}
+
+async function cloudSave() {
+  if (!sb) { toast('Service cloud indisponible','inf'); return; }
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { toast('Connectez-vous d\'abord','inf'); return; }
+  toast('Sauvegarde en cours…','inf');
+  try {
+    const { error } = await sb.from('cahier_journal_backup').insert({ data: state });
+    if (error) toast('Erreur cloud : '+error.message,'inf');
+    else toast('Sauvegardé dans le cloud ✓','ok');
+  } catch (e) {
+    toast('Erreur cloud : '+e.message,'inf');
+  }
+}
+
+async function cloudRestore() {
+  if (!sb) { toast('Service cloud indisponible','inf'); return; }
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { toast('Connectez-vous d\'abord','inf'); return; }
+  try {
+    const { data, error } = await sb.from('cahier_journal_backup')
+      .select('data, created_at')
+      .order('created_at', { ascending: false })
+      .limit(1);
+    if (error) { toast('Erreur cloud : '+error.message,'inf'); return; }
+    if (!data || !data.length) { toast('Aucune sauvegarde cloud trouvée','inf'); return; }
+    const when = new Date(data[0].created_at).toLocaleString('fr-FR');
+    if (!confirm('Restaurer la sauvegarde cloud du '+when+' ?\nCela remplacera les données locales actuelles.')) return;
+    state = data[0].data;
+    saveLocal(false); renderAll();
+    toast('Restauré depuis le cloud ✓','ok');
+  } catch (e) {
+    toast('Erreur cloud : '+e.message,'inf');
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // TOAST
 // ════════════════════════════════════════════════════════════════════════════
 let _tt;
@@ -2318,6 +2442,7 @@ setInterval(() => saveLocal(false), 30000);
 // INIT
 // ════════════════════════════════════════════════════════════════════════════
 renderAll();
+cloudInit();
 </script>
 </body>
 </html>
