@@ -206,6 +206,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .block-content textarea{width:100%;border:none;outline:none;resize:none;font-family:inherit;
   font-size:13px;color:var(--text);line-height:1.6;background:transparent;min-height:56px}
 .block-content textarea::placeholder{color:var(--text3)}
+.block-text-field{width:100%;border:none;outline:none;font-family:inherit;
+  font-size:13px;color:var(--text);line-height:1.6;background:transparent;min-height:56px}
+.block-text-field:empty:before{content:attr(data-placeholder);color:var(--text3)}
+.block-text-field b,.block-text-field strong{font-weight:700}
+.block-text-field u{text-decoration:underline}
 
 /* add block row */
 .add-block-row{display:flex;gap:6px;flex-wrap:wrap;padding:4px 0}
@@ -341,7 +346,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
   .print-block{display:flex!important;gap:4px;margin-top:2px;align-items:flex-start;break-inside:avoid}
   .print-block-icon{width:16px;height:16px;border-radius:3px;font-size:9px;
     display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .print-block-text{font-size:9px;line-height:1.4;color:#222;white-space:pre-wrap;flex:1}
+  .print-block-text{font-size:9px;line-height:1.4;color:#222;flex:1}
   .print-block-label{font-size:8px;font-weight:700;margin-bottom:1px}
 
   /* matériel print */
@@ -1499,7 +1504,7 @@ function makeCard(s, wk, dayIndex, si) {
     return `<div class="print-block" style="display:none">
       <div class="print-block-icon" style="background:${bt.color}">${bt.icon}</div>
       <div><div class="print-block-label" style="color:${bt.color}">${bt.label}</div>
-      <div class="print-block-text">${(b.text||'').replace(/</g,'&lt;')}</div></div>
+      <div class="print-block-text">${b.text||''}</div></div>
     </div>`;
   }).join('');
 
@@ -1714,6 +1719,35 @@ function closeModal() {
 }
 function overlayClick(e) { if(e.target===document.getElementById('fsOverlay')) closeModal(); }
 
+// ── Mise en forme des blocs de séance (gras / souligné / couleur) ─────────────
+let savedBlockRange = null;
+let savedBlockField = null;
+function saveBlockSelection(colorInput) {
+  const field = colorInput.closest('.block').querySelector('.block-text-field');
+  const sel = window.getSelection();
+  if (sel.rangeCount > 0 && field.contains(sel.anchorNode)) {
+    savedBlockRange = sel.getRangeAt(0).cloneRange();
+    savedBlockField = field;
+  }
+}
+function applyBlockColor(colorInput) {
+  const field = savedBlockField || colorInput.closest('.block').querySelector('.block-text-field');
+  field.focus();
+  if (savedBlockRange) {
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(savedBlockRange);
+  }
+  document.execCommand('foreColor', false, colorInput.value);
+}
+function selectAllContentEditable(el) {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
 function onTitleChange() { autoColor(); updateSousDomaineList(); }
 function autoColor() {
   updateSousDomaineList();
@@ -1763,13 +1797,17 @@ function makeBlockEl(b, i) {
         ${BLOCK_TYPES.map(t=>`<option value="${t.id}" ${t.id===b.type?'selected':''}>${t.icon} ${t.label}</option>`).join('')}
       </select>
       <div class="block-hd-right">
+        <button class="block-act" title="Gras" onmousedown="event.preventDefault()" onclick="document.execCommand('bold')">G</button>
+        <button class="block-act" title="Souligné" onmousedown="event.preventDefault()" onclick="document.execCommand('underline')" style="text-decoration:underline">S</button>
+        <input type="color" title="Couleur du texte" value="#e53935" class="block-color" onmousedown="saveBlockSelection(this)" oninput="applyBlockColor(this)" style="width:20px;height:20px;padding:0;border:none;border-radius:4px;cursor:pointer;background:none">
+        <button class="block-act" title="Effacer la mise en forme" onmousedown="event.preventDefault()" onclick="document.execCommand('removeFormat')">✕</button>
         <button class="block-act" title="Monter" onclick="moveBlock(${i},-1)">↑</button>
         <button class="block-act" title="Descendre" onclick="moveBlock(${i},1)">↓</button>
         <button class="block-act" title="Supprimer" onclick="removeBlock(${i})" style="color:#e53935">×</button>
       </div>
     </div>
     <div class="block-content">
-      <textarea placeholder="${bt.ph}" oninput="editBlocks[${i}].text=this.value;autoResize(this)" ondblclick="this.select()">${b.text||''}</textarea>
+      <div class="fta block-text-field" contenteditable="true" data-placeholder="${bt.ph}" oninput="editBlocks[${i}].text=this.innerHTML" ondblclick="selectAllContentEditable(this)">${b.text||''}</div>
     </div>`;
 
   // block drag — uniquement depuis l'en-tête, jamais depuis le texte
@@ -1800,11 +1838,6 @@ function makeBlockEl(b, i) {
     renderBlocks();
   });
 
-  setTimeout(() => {
-    const ta = wrap.querySelector('textarea');
-    if(ta) autoResize(ta);
-  }, 0);
-
   return wrap;
 }
 
@@ -1834,7 +1867,7 @@ function addBlock(type) {
   setTimeout(() => {
     const list = document.getElementById('blockList');
     const last = list.lastElementChild;
-    if(last) { last.scrollIntoView({behavior:'smooth',block:'nearest'}); last.querySelector('textarea')?.focus(); }
+    if(last) { last.scrollIntoView({behavior:'smooth',block:'nearest'}); last.querySelector('.block-text-field')?.focus(); }
   },80);
 }
 
@@ -1910,10 +1943,10 @@ function saveSeance() {
   const title = document.getElementById('fTitle').value.trim();
   if(!title) { alert('Le titre est obligatoire.'); return; }
 
-  // sync block text from textareas
+  // sync block text from contenteditable fields
   document.querySelectorAll('#blockList .block').forEach((el,i) => {
-    const ta = el.querySelector('textarea');
-    if(ta && editBlocks[i]) editBlocks[i].text = ta.value;
+    const ta = el.querySelector('.block-text-field');
+    if(ta && editBlocks[i]) editBlocks[i].text = ta.innerHTML;
   });
 
   const autoColorOn = document.getElementById('fAutoColor').checked;
@@ -2633,7 +2666,7 @@ async function exportWord() {
           };
           const bc = BCOLORS[b.type]||'546e7a';
           const bcLight = lighten('#'+bc);
-          const lines = (b.text||'').split('\n').filter(l=>l.trim());
+          const hasContent = (b.text||'').replace(/<[^>]*>/g,'').trim().length > 0;
           return new TableRow({ children: [
             new TableCell({
               borders,
@@ -2650,8 +2683,8 @@ async function exportWord() {
               width: { size:PAGE_W-1800, type:WidthType.DXA },
               shading: { fill:bcLight, type:ShadingType.CLEAR },
               margins: { top:60, bottom:60, left:140, right:120 },
-              children: lines.length
-                ? lines.map((l,i) => new Paragraph({ spacing:{after:i<lines.length-1?60:0}, children:[new TextRun({text:l, size:18, font:'Arial', color:'111111'})] }))
+              children: hasContent
+                ? [new Paragraph({ children: objectifToRuns(b.text, { size:18, font:'Arial', color:'111111' }).map(r => new TextRun(r)) })]
                 : [new Paragraph({children:[new TextRun({text:'—',size:18,color:'999999'})]})]
             })
           ]});
