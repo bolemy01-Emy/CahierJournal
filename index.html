@@ -227,6 +227,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
   transition:border-color .15s;outline:none}
 .fi:focus,.fs-sel:focus,.fta:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(61,90,254,.1)}
 .fta{resize:vertical;min-height:48px;line-height:1.5}
+#fObjectif:empty:before{content:attr(data-placeholder);color:var(--text3)}
+#fObjectif b,#fObjectif strong{font-weight:700}
+#fObjectif u{text-decoration:underline}
 .frow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .frow3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
 
@@ -513,10 +516,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
       <div style="border:2px solid #3d5afe;border-radius:8px;overflow:hidden">
         <div style="background:#3d5afe;padding:6px 12px;display:flex;align-items:center;gap:6px">
           <span style="font-size:14px">🎯</span>
-          <span style="font-size:11px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.5px">Objectifs</span>
+          <span style="font-size:11px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.5px;flex:1">Objectifs</span>
+          <button type="button" title="Gras" onmousedown="event.preventDefault()" onclick="document.execCommand('bold')" style="background:rgba(255,255,255,.25);border:none;color:#fff;width:22px;height:22px;border-radius:4px;cursor:pointer;font-weight:700;font-size:12px">G</button>
+          <button type="button" title="Souligné" onmousedown="event.preventDefault()" onclick="document.execCommand('underline')" style="background:rgba(255,255,255,.25);border:none;color:#fff;width:22px;height:22px;border-radius:4px;cursor:pointer;text-decoration:underline;font-size:12px">S</button>
+          <input type="color" id="fObjectifColor" title="Couleur du texte" value="#e53935" onmousedown="saveObjSelection()" oninput="applyObjColor(this.value)" style="width:22px;height:22px;padding:0;border:none;border-radius:4px;cursor:pointer;background:none">
+          <button type="button" title="Effacer la mise en forme" onmousedown="event.preventDefault()" onclick="document.execCommand('removeFormat')" style="background:rgba(255,255,255,.25);border:none;color:#fff;width:22px;height:22px;border-radius:4px;cursor:pointer;font-size:12px">✕</button>
         </div>
         <div style="padding:8px 10px;background:#fff">
-          <textarea class="fta" id="fObjectif" placeholder="Ce que les élèves vont apprendre / savoir faire à l'issue de la séance…" rows="3" style="border:none;padding:0;box-shadow:none;min-height:56px"></textarea>
+          <div class="fta" id="fObjectif" contenteditable="true" data-placeholder="Ce que les élèves vont apprendre / savoir faire à l'issue de la séance…" style="border:none;padding:0;box-shadow:none;min-height:56px;outline:none"></div>
+        </div>
+        <div style="padding:0 10px 8px;background:#fff">
+          <button type="button" class="btn btn-ghost btn-sm" style="width:100%" onclick="toggleRefPanel()">📚 Référentiel de compétences CE2</button>
+          <div id="refPanel" style="display:none;margin-top:6px;max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:6px"></div>
         </div>
       </div>
 
@@ -810,6 +821,178 @@ function updateSousDomaineList() {
   const list = SUBDOMAINS[dom] || [];
   const dl = document.getElementById('sousDomList');
   if (dl) dl.innerHTML = list.map(x => `<option>${x}</option>`).join('');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// RÉFÉRENTIEL DE COMPÉTENCES CE2 (reconstruit à partir des programmes cycle 2 —
+// synthèse générale, à confirmer/adapter au besoin par rapport aux textes
+// Éduscol exacts pour un usage d'inspection).
+// ════════════════════════════════════════════════════════════════════════════
+const COMPETENCY_REF = {
+  'Français': [
+    "Lire et comprendre un texte adapté à son âge",
+    "Lire à voix haute avec fluidité et expression",
+    "Écrire un texte court en respectant les contraintes données",
+    "Maîtriser les accords dans le groupe nominal (déterminant, nom, adjectif)",
+    "Conjuguer les verbes usuels au présent, futur, imparfait, passé composé",
+    "Enrichir et utiliser à bon escient le vocabulaire étudié",
+    "Repérer et utiliser les signes de ponctuation",
+    "Participer à des échanges oraux en respectant les règles de la communication"
+  ],
+  'Mathématiques': [
+    "Connaître, écrire et comparer les nombres jusqu'à 1000 et au-delà",
+    "Calculer en ligne, mentalement et en posant les opérations",
+    "Résoudre des problèmes relevant des quatre opérations",
+    "Se repérer et se déplacer dans l'espace en utilisant des repères",
+    "Reconnaître, nommer et décrire les figures et solides usuels",
+    "Utiliser les unités de mesure (longueur, masse, contenance, temps, monnaie)",
+    "Organiser et lire des données (tableaux, graphiques)"
+  ],
+  'Langue vivante': [
+    "Comprendre des mots et phrases simples à l'oral",
+    "Reproduire un modèle oral (phonologie, rythme, intonation)",
+    "Se présenter et échanger dans des situations simples de la vie courante",
+    "Découvrir des repères culturels du pays de la langue étudiée"
+  ],
+  'Enseignements artistiques': [
+    "Réaliser une production plastique en 2D ou en 3D",
+    "S'exprimer par des pratiques artistiques diverses",
+    "Écouter, décrire et comparer des extraits musicaux",
+    "Chanter une mélodie simple avec justesse et en groupe",
+    "Développer un regard sensible et curieux sur des œuvres d'art"
+  ],
+  'Éducation physique et sportive': [
+    "Adapter ses déplacements à des environnements variés",
+    "Produire une performance mesurable (courir, sauter, lancer)",
+    "S'exprimer devant les autres par une prestation artistique ou acrobatique",
+    "Conduire et maîtriser un affrontement collectif ou interindividuel",
+    "Respecter les règles, les partenaires et les adversaires"
+  ],
+  'Questionner le monde': [
+    "Identifier les états et changements d'état de la matière",
+    "Reconnaître les caractéristiques du vivant (croissance, reproduction, besoins)",
+    "Se repérer dans le temps (jour, semaine, mois, année, grandes périodes)",
+    "Se repérer dans l'espace proche et lointain (plans, cartes, paysages)",
+    "Comprendre le fonctionnement simple d'objets techniques"
+  ],
+  'Enseignement moral et civique (EMC)': [
+    "Respecter autrui et les règles de la vie collective",
+    "Comprendre les notions de droits et de devoirs",
+    "Coopérer et s'engager dans un projet collectif",
+    "Développer le sens de l'engagement et de l'initiative",
+    "S'exprimer, écouter et argumenter dans un débat"
+  ],
+  'Enseignement transversal': [
+    "Se repérer dans l'emploi du temps et anticiper ses tâches",
+    "Organiser son travail et son matériel de manière autonome",
+    "Coopérer avec ses pairs dans un travail de groupe",
+    "S'auto-évaluer et identifier ses progrès"
+  ]
+};
+
+function toggleRefPanel() {
+  const panel = document.getElementById('refPanel');
+  if (panel.style.display !== 'none') { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  if (!panel.dataset.built) { buildRefPanel(); panel.dataset.built = '1'; }
+}
+
+function buildRefPanel() {
+  const panel = document.getElementById('refPanel');
+  panel.innerHTML = '';
+  Object.keys(COMPETENCY_REF).forEach(domain => {
+    const det = document.createElement('details');
+    det.style.marginBottom = '4px';
+    const sum = document.createElement('summary');
+    sum.style.cssText = 'cursor:pointer;font-size:12px;font-weight:700;color:var(--text1);padding:4px 2px';
+    sum.textContent = domain;
+    det.appendChild(sum);
+    COMPETENCY_REF[domain].forEach(item => {
+      const lbl = document.createElement('label');
+      lbl.style.cssText = 'display:flex;align-items:flex-start;gap:6px;font-size:12px;color:var(--text2);padding:3px 6px;cursor:pointer';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.style.marginTop = '2px';
+      cb.onchange = () => { if (cb.checked) { insertRefItem(item); cb.checked = false; } };
+      const span = document.createElement('span');
+      span.textContent = item;
+      lbl.appendChild(cb);
+      lbl.appendChild(span);
+      det.appendChild(lbl);
+    });
+    panel.appendChild(det);
+  });
+}
+
+function insertRefItem(text) {
+  const field = document.getElementById('fObjectif');
+  field.focus();
+  const range = document.createRange();
+  range.selectNodeContents(field);
+  range.collapse(false);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  const hasContent = field.textContent.trim().length > 0;
+  const bullet = hasContent ? ('<div>• ' + text + '</div>') : ('• ' + text);
+  document.execCommand('insertHTML', false, bullet);
+}
+
+// ── Mise en forme du champ Objectif (gras / souligné / couleur) ───────────────
+let savedObjRange = null;
+function saveObjSelection() {
+  const sel = window.getSelection();
+  const field = document.getElementById('fObjectif');
+  if (sel.rangeCount > 0 && field.contains(sel.anchorNode)) {
+    savedObjRange = sel.getRangeAt(0).cloneRange();
+  }
+}
+function applyObjColor(color) {
+  const field = document.getElementById('fObjectif');
+  field.focus();
+  if (savedObjRange) {
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(savedObjRange);
+  }
+  document.execCommand('foreColor', false, color);
+}
+
+// Convertit le HTML du champ Objectif (gras/souligné/couleur) en une liste de
+// "runs" exploitables par docx.js pour l'export Word — utilisé partout où
+// l'objectif est exporté (Word classique, Semainier Word).
+function objectifToRuns(html, baseOpts) {
+  const wrap = document.createElement('div');
+  wrap.innerHTML = html || '';
+  const runs = [];
+  let isFirstBlock = true;
+  function rgbToHex(rgb) {
+    const m = rgb.match(/\d+/g);
+    if (!m) return null;
+    return m.slice(0, 3).map(x => (+x).toString(16).padStart(2, '0')).join('').toUpperCase();
+  }
+  function walk(node, fmt) {
+    if (node.nodeType === 3) {
+      if (node.textContent) runs.push(Object.assign({}, baseOpts, fmt, { text: node.textContent }));
+      return;
+    }
+    if (node.nodeType !== 1) return;
+    const tag = node.tagName.toLowerCase();
+    if (tag === 'br') { runs.push(Object.assign({}, baseOpts, { text: '', break: 1 })); return; }
+    const isBlock = (tag === 'div' || tag === 'p');
+    if (isBlock && !isFirstBlock) runs.push(Object.assign({}, baseOpts, { text: '', break: 1 }));
+    if (isBlock) isFirstBlock = false;
+    let nf = Object.assign({}, fmt);
+    if (tag === 'b' || tag === 'strong') nf.bold = true;
+    if (tag === 'u') nf.underline = { type: 'single' };
+    if (tag === 'span' && node.style && node.style.color) {
+      const hex = rgbToHex(node.style.color);
+      if (hex) nf.color = hex;
+    }
+    Array.from(node.childNodes).forEach(c => walk(c, nf));
+  }
+  Array.from(wrap.childNodes).forEach(c => walk(c, {}));
+  return runs.length ? runs : [Object.assign({}, baseOpts, { text: '' })];
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1186,9 +1369,14 @@ function renderSummary() {
 
 // Horaires officiels de la journée de classe (utilisés pour détecter les trous
 // en tout début / toute fin de demi-journée, en plus des trous entre créneaux).
+// Les récréations (10h15-10h30 et 15h15-15h30) sont exclues du contrôle : elles
+// ne sont jamais signalées comme un trou, qu'une séance "Récréation" soit
+// saisie ce jour-là ou non.
 const SCHOOL_BLOCKS = [
-  { start: '08:30', end: '11:30', label: 'Matin' },
-  { start: '13:30', end: '16:30', label: 'Après-midi' }
+  { start: '08:30', end: '10:15', label: 'Matin (avant récré)' },
+  { start: '10:30', end: '11:30', label: 'Matin (après récré)' },
+  { start: '13:30', end: '15:15', label: 'Après-midi (avant récré)' },
+  { start: '15:30', end: '16:30', label: 'Après-midi (après récré)' }
 ];
 
 // Détecte les chevauchements et trous horaires dans les créneaux d'une journée
@@ -1490,7 +1678,10 @@ function populateModal(s) {
   document.getElementById('fSousDomaine').value = s?.sousDomaine || '';
   document.getElementById('fNotion').value = s?.notion || '';
   document.getElementById('fLieu').value = s?.lieu || 'Classe';
-  document.getElementById('fObjectif').value = s?.objectif || '';
+  document.getElementById('fObjectif').innerHTML = s?.objectif || '';
+  const refPanel = document.getElementById('refPanel');
+  refPanel.style.display = 'none';
+  refPanel.dataset.built = '';
   document.getElementById('fNotes').value = s?.notes || '';
   document.getElementById('fsHeaderSub').textContent = isNew ? 'Nouvelle séance' :
     `${s.domain||''}${s.sousDomaine?' · '+s.sousDomaine:''}${s.notion?' · '+s.notion:''}`;
@@ -1739,7 +1930,7 @@ function saveSeance() {
     sousDomaine: document.getElementById('fSousDomaine').value,
     notion: document.getElementById('fNotion').value,
     lieu: document.getElementById('fLieu').value,
-    objectif: document.getElementById('fObjectif').value,
+    objectif: document.getElementById('fObjectif').innerHTML,
     color,
     autoColor: autoColorOn,
     materials: [...editMaterials],
@@ -2170,7 +2361,7 @@ function renderSemainier() {
         if(s.objectif) {
           const obj = document.createElement('div');
           obj.style.cssText = 'font-size:12px;color:var(--text2);font-style:italic;margin-top:2px';
-          obj.textContent = '🎯 ' + s.objectif;
+          obj.innerHTML = '🎯 ' + s.objectif;
           content.appendChild(obj);
         }
 
@@ -2244,7 +2435,7 @@ async function exportSemainierWord() {
             new Paragraph({ children:[new TextRun({ text:domTxt, bold:true, size:19, font:'Arial', color:'111111' })] }),
             s.objectif ? new Paragraph({ children:[
               new TextRun({ text:'🎯 ', size:17 }),
-              new TextRun({ text:s.objectif, italics:true, size:17, color:'444444', font:'Arial' })
+              ...objectifToRuns(s.objectif, { italics:true, size:17, color:'444444', font:'Arial' }).map(r => new TextRun(r))
             ]}) : new Paragraph({children:[]})
           ]
         })
@@ -2393,7 +2584,7 @@ async function exportWord() {
                 ]}) : new Paragraph({children:[]}),
                 s.objectif ? new Paragraph({ children: [
                   new TextRun({ text:'🎯 ', size:18 }),
-                  new TextRun({ text: s.objectif, italics:true, size:18, color:'333333', font:'Arial' })
+                  ...objectifToRuns(s.objectif, { italics:true, size:18, color:'333333', font:'Arial' }).map(r => new TextRun(r))
                 ]}) : new Paragraph({children:[]}),
               ]
             }),
