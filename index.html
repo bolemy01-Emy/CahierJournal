@@ -2974,12 +2974,11 @@ async function exportWord() {
           })
         ]})]
       }));
-      children.push(new Paragraph({ children:[], spacing:{after:0} }));
 
       // ── Matériel (ligne simple italique, comme le modèle) ──────────────────
       if(s.materials && s.materials.length) {
         children.push(new Paragraph({
-          spacing: { after: 20 },
+          spacing: { after: 0 },
           children: [
             new TextRun({ text:'🧰 Matériel : ', italics:true, bold:true, size:18, color:'666666', font:'Arial' }),
             new TextRun({ text: s.materials.join(' · '), italics:true, size:18, color:'666666', font:'Arial' })
@@ -2992,7 +2991,6 @@ async function exportWord() {
         children.push(coloredBox('🎯', 'Objectif de la séance', 'BDD7EE', '2E75B6',
           objectifToRuns(s.objectif, { size:19, font:'Arial', color:'222222' }).map(r => new TextRun(r))
         ));
-        children.push(new Paragraph({ children:[], spacing:{after:0} }));
       }
 
       // ── Blocs ────────────────────────────────────────────────────────────
@@ -3049,12 +3047,10 @@ async function exportWord() {
                 })
               ]})]
             }));
-            children.push(new Paragraph({ children:[], spacing:{after:0} }));
             bi += 2; continue;
           }
 
           children.push(coloredBox(bt.icon, bt.label, style.fill, style.text, bodyRuns));
-          children.push(new Paragraph({ children:[], spacing:{after:0} }));
           bi++;
         }
       }
