@@ -137,12 +137,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
   border:1px solid var(--border);color:var(--text2)}
 
 /* break bar */
-.break-bar{border-radius:var(--r-sm);padding:4px 10px;font-size:11px;font-weight:600;
-  color:#fff;text-align:center;letter-spacing:.3px;background:#00838f}
-.recess-marker{border-radius:var(--r-sm);padding:3px 10px;font-size:10px;font-weight:600;
-  color:var(--text3);text-align:center;letter-spacing:.3px;background:repeating-linear-gradient(
-  45deg,var(--surface2),var(--surface2) 6px,var(--border) 6px,var(--border) 7px);
-  border:1px dashed var(--border);user-select:none}
+.break-bar{border-radius:var(--r-sm);padding:4px 6px 4px 10px;font-size:11px;font-weight:600;
+  color:#fff;letter-spacing:.3px;background:#00838f;display:flex;align-items:center;justify-content:space-between;gap:6px}
+.break-bar-del{background:rgba(255,255,255,.25);border:none;color:#fff;width:18px;height:18px;
+  border-radius:4px;cursor:pointer;font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.break-bar-del:hover{background:rgba(255,255,255,.45)}
 
 /* add btn */
 .add-btn{width:100%;padding:5px;border:1.5px dashed var(--border2);border-radius:var(--r-sm);
@@ -347,6 +346,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 
   /* break bar */
   .break-bar{padding:2px 6px!important;font-size:9px!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .break-bar-del{display:none!important}
 
   /* print-only block list */
   .print-block{display:flex!important;gap:4px;margin-top:2px;align-items:flex-start;break-inside:avoid}
@@ -404,6 +404,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
     <button class="btn btn-ghost" onclick="window.print()">🖨️ Imprimer</button>
     <button class="btn btn-ghost" onclick="exportWord()" title="Exporter la semaine en cours en Word">📝 Word</button>
     <button class="btn btn-ghost" onclick="openSemainier()" title="Vue créneaux / domaines / objectifs de la semaine en cours">📅 Semainier</button>
+    <button class="btn btn-ghost" onclick="openWeekRestore()" title="Reconstruire la semaine affichée à partir d'un fichier Word exporté">🗂️ Restaurer (Word)</button>
     <button class="btn btn-green" onclick="saveLocal(true)">💾 Sauvegarder</button>
     <button class="btn btn-primary" onclick="openNew()">+ Séance</button>
   </div>
@@ -713,6 +714,67 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
   </div>
 </div>
 
+<!-- ══ RESTAURATION SEMAINE DEPUIS WORD ═══════════════════════════════════ -->
+<div class="imp-overlay" id="wrOverlay" onclick="if(event.target===this)closeWeekRestore()">
+  <div class="imp-modal">
+    <div class="imp-modal-hd">
+      <span style="font-size:22px">🗂️</span>
+      <h3 id="wrModalTitle">Restaurer une semaine depuis Word</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeWeekRestore()">✕</button>
+    </div>
+    <div class="imp-modal-body">
+
+      <!-- Étape 1 : fichier Word ou texte collé -->
+      <div id="wrStep1">
+        <div class="imp-notice">
+          💡 <strong>Comment faire :</strong> Choisis le fichier <strong>.docx</strong> que tu avais exporté
+          (le texte en sera extrait automatiquement), ou colle le texte à la main si tu préfères.
+          Cela va reconstruire la semaine actuellement affichée (<strong id="wrWeekLabel"></strong>) — les 5 jours à la fois.
+        </div>
+        <div style="margin-top:4px">
+          <label class="btn btn-ghost btn-sm" style="cursor:pointer;justify-content:center;width:100%;margin-bottom:8px">
+            📎 Choisir le fichier Word (.docx)
+            <input type="file" accept=".docx" style="display:none" onchange="handleWrDocxUpload(event)">
+          </label>
+          <div id="wrFileStatus" style="font-size:11px;color:var(--text3);margin-bottom:8px"></div>
+          <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">
+            Texte extrait (modifiable)
+          </div>
+          <textarea class="imp-textarea" id="wrTextarea" placeholder="Le texte extrait du fichier Word apparaîtra ici, ou colle-le toi-même…"></textarea>
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px">
+          <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Mode d'import (par jour)</div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:6px">
+            <input type="radio" name="wrMode" value="append" checked> Ajouter aux séances existantes de chaque jour
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+            <input type="radio" name="wrMode" value="replace"> Remplacer les séances existantes de chaque jour
+          </label>
+        </div>
+      </div>
+
+      <!-- Étape 2 : coller le JSON retourné par Claude -->
+      <div class="imp-json-wrap" id="wrStep2">
+        <div class="imp-notice">
+          ✅ Le prompt a été copié ! <strong>Ouvrez Claude.ai</strong>, collez-le et envoyez.
+          Claude va retourner un bloc JSON pour toute la semaine — copiez-le et collez-le ici :
+        </div>
+        <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">
+          Réponse JSON de Claude
+        </div>
+        <textarea class="imp-json-area" id="wrJsonArea" placeholder='Collez ici le JSON retourné par Claude…&#10;&#10;{"lundi":{"seances":[...],"breaks":[...]},"mardi":{...}}'></textarea>
+      </div>
+
+    </div>
+    <div class="imp-modal-ft">
+      <button class="btn btn-ghost" onclick="closeWeekRestore()">Annuler</button>
+      <button class="btn btn-ghost" id="wrBtnBack" style="display:none" onclick="wrGoBack()">← Retour</button>
+      <button class="btn btn-primary" id="wrBtnNext" onclick="wrNextStep()">📋 Générer le prompt Claude</button>
+      <button class="btn btn-primary" id="wrBtnImport" style="display:none" onclick="wrDoImport()">✅ Restaurer la semaine</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ SEMAINIER MODAL ═════════════════════════════════════════════════════ -->
 <div class="imp-overlay" id="semOverlay" onclick="if(event.target===this)closeSemainier()">
   <div class="imp-modal" style="max-width:820px;max-height:85vh;display:flex;flex-direction:column">
@@ -733,6 +795,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
 <script>
 // ════════════════════════════════════════════════════════════════════════════
 // BLOCK TYPE DEFINITIONS
@@ -1434,6 +1497,39 @@ function getDayIssues(entries) {
   return issues;
 }
 
+// Récréations : vraies pauses (supprimables), insérées automatiquement au bon
+// endroit chronologique si elles n'existent pas déjà pour ce jour.
+const RECESS_DEFS = [
+  { start:'10:15', end:'10:30', label:'☕ 10h15 - 10h30   Récréation' },
+  { start:'15:15', end:'15:30', label:'☕ 15h15 - 15h30   Récréation' }
+];
+
+function ensureRecessBreaks(wk, dayIndex) {
+  if (!state.weeks[wk]) state.weeks[wk] = {};
+  if (!state.weeks[wk][dayIndex]) state.weeks[wk][dayIndex] = [];
+  const list = state.weeks[wk][dayIndex];
+  RECESS_DEFS.forEach(def => {
+    const exists = list.some(e => e.type === 'break' && e.start === def.start && e.end === def.end);
+    if (exists) return; // déjà présente : on ne touche à rien d'autre
+    const entry = { id: uid(), type: 'break', label: def.label, color: '#00838f', start: def.start, end: def.end };
+    // Insère juste avant la première entrée dont l'heure de début est postérieure,
+    // sans jamais réordonner le reste de la liste existante.
+    let insertAt = list.length;
+    for (let i = 0; i < list.length; i++) {
+      const t = t2m(list[i].start);
+      if (!isNaN(t) && t > t2m(def.start)) { insertAt = i; break; }
+    }
+    list.splice(insertAt, 0, entry);
+  });
+}
+
+function deleteBreak(wk, dayIndex, breakId) {
+  if (!state.weeks[wk] || !state.weeks[wk][dayIndex]) return;
+  state.weeks[wk][dayIndex] = state.weeks[wk][dayIndex].filter(e => e.id !== breakId);
+  saveLocal(false); renderAll();
+  toast('Pause supprimée', 'inf');
+}
+
 function renderGrid() {
   const grid = document.getElementById('dayGrid');
   grid.innerHTML = '';
@@ -1442,6 +1538,7 @@ function renderGrid() {
   const days = getWeekDates(currentWeek);
 
   days.forEach(day => {
+    ensureRecessBreaks(wk, day.dayIndex);
     const seances = state.weeks[wk][day.dayIndex] || [];
     const totalMins = seances.filter(s=>s.type!=='break').reduce((a,s)=>{
       const d=t2m(s.end)-t2m(s.start); return a+(isNaN(d)?0:d);
@@ -1470,36 +1567,23 @@ function renderGrid() {
     const body = col.querySelector(`#db_${day.dayIndex}`);
     setupDropZone(body, wk, day.dayIndex);
 
-    // Repères fixes de récréation (non modifiables), insérés à leur place chronologique
-    const RECESS_MARKERS = [
-      { start:'10:15', end:'10:30', label:'☕ Récréation · 10h15-10h30' },
-      { start:'15:15', end:'15:30', label:'☕ Récréation · 15h15-15h30' }
-    ];
-    const pendingMarkers = RECESS_MARKERS.slice();
-    function flushMarkersUpTo(timeStr) {
-      const t = t2m(timeStr);
-      while (pendingMarkers.length && (isNaN(t) || t2m(pendingMarkers[0].start) <= t)) {
-        const m = pendingMarkers.shift();
-        const bar = document.createElement('div');
-        bar.className = 'recess-marker';
-        bar.textContent = m.label;
-        body.appendChild(bar);
-      }
-    }
-
     seances.forEach((s, si) => {
-      flushMarkersUpTo(s.start || '23:59');
       if(s.type==='break') {
         const bar = document.createElement('div');
         bar.className = 'break-bar';
         bar.style.background = s.color||'#00838f';
-        bar.textContent = s.label;
+        bar.innerHTML = `<span>${s.label}</span>`;
+        const delBtn = document.createElement('button');
+        delBtn.className = 'break-bar-del';
+        delBtn.title = 'Supprimer cette pause';
+        delBtn.textContent = '×';
+        delBtn.onclick = (e) => { e.stopPropagation(); deleteBreak(wk, day.dayIndex, s.id); };
+        bar.appendChild(delBtn);
         body.appendChild(bar);
       } else {
         body.appendChild(makeCard(s, wk, day.dayIndex, si));
       }
     });
-    flushMarkersUpTo('23:59'); // reste (ex: aucune séance l'après-midi)
 
     const addBtn = document.createElement('button');
     addBtn.className = 'add-btn';
@@ -2255,6 +2339,175 @@ function toast(msg, type='ok') {
 // IMPORT TEXTE (via Claude.ai)
 // ════════════════════════════════════════════════════════════════════════════
 let impCtx = null; // {wk, dayIndex}
+
+// ════════════════════════════════════════════════════════════════════════════
+// RESTAURATION D'UNE SEMAINE ENTIÈRE DEPUIS UN FICHIER WORD EXPORTÉ
+// ════════════════════════════════════════════════════════════════════════════
+function openWeekRestore() {
+  document.getElementById('wrWeekLabel').textContent = getWeekLabel(currentWeek);
+  document.getElementById('wrTextarea').value = '';
+  document.getElementById('wrJsonArea').value = '';
+  document.getElementById('wrFileStatus').textContent = '';
+  document.getElementById('wrStep1').style.display = '';
+  document.getElementById('wrStep2').style.display = 'none';
+  document.getElementById('wrBtnNext').style.display = '';
+  document.getElementById('wrBtnImport').style.display = 'none';
+  document.getElementById('wrBtnBack').style.display = 'none';
+  document.getElementById('wrOverlay').classList.add('open');
+}
+function closeWeekRestore() {
+  document.getElementById('wrOverlay').classList.remove('open');
+}
+function wrGoBack() {
+  document.getElementById('wrStep1').style.display = '';
+  document.getElementById('wrStep2').style.display = 'none';
+  document.getElementById('wrBtnNext').style.display = '';
+  document.getElementById('wrBtnImport').style.display = 'none';
+  document.getElementById('wrBtnBack').style.display = 'none';
+}
+
+async function handleWrDocxUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('wrFileStatus');
+  if (typeof mammoth === 'undefined') {
+    status.textContent = '⚠️ Extraction indisponible (bibliothèque non chargée) — copiez-collez le texte manuellement depuis Word.';
+    status.style.color = '#e53935';
+    return;
+  }
+  status.textContent = 'Extraction du texte en cours…';
+  status.style.color = 'var(--text3)';
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    document.getElementById('wrTextarea').value = result.value;
+    status.textContent = '✓ Texte extrait de "' + file.name + '" (' + result.value.length + ' caractères)';
+    status.style.color = '#2e7d32';
+  } catch (e) {
+    console.error(e);
+    status.textContent = '⚠️ Erreur d\'extraction : ' + e.message + ' — copiez-collez le texte manuellement.';
+    status.style.color = '#e53935';
+  }
+}
+
+function wrNextStep() {
+  const text = document.getElementById('wrTextarea').value.trim();
+  if (!text) { toast('Choisissez un fichier Word ou collez du texte avant de continuer', 'inf'); return; }
+
+  const prompt = `Tu es un assistant pour enseignants. Voici le texte d'un cahier journal exporté en Word, couvrant UNE SEMAINE COMPLÈTE (5 jours). Extrais TOUTES les séances de CHAQUE jour et retourne UNIQUEMENT un objet JSON valide (sans markdown, sans backticks, sans aucun texte avant ou après).
+
+Structure exacte attendue (une clé par jour, en minuscules, uniquement les jours présents dans le texte) :
+{
+  "lundi": {
+    "seances": [
+      {
+        "type": "seance",
+        "start": "08:30",
+        "end": "09:00",
+        "title": "Titre de la séance",
+        "domain": "Domaine / Matière",
+        "sousDomaine": "Sous-domaine (si identifiable)",
+        "notion": "Notion ou séquence",
+        "lieu": "Classe",
+        "objectif": "Objectif de la séance",
+        "color": "#e53935",
+        "materials": ["matériel 1", "matériel 2"],
+        "blocks": [
+          { "type": "consigne", "text": "Texte du bloc..." }
+        ],
+        "notes": ""
+      }
+    ],
+    "breaks": [
+      { "type": "break", "label": "10:15 - 10:30   Récréation", "color": "#00838f", "after_seance_index": 2 }
+    ]
+  },
+  "mardi": { "seances": [...], "breaks": [...] },
+  "jeudi": { "seances": [...], "breaks": [...] },
+  "vendredi": { "seances": [...], "breaks": [...] }
+}
+
+Clés de jour possibles : lundi, mardi, mercredi, jeudi, vendredi.
+Types de blocs : consigne, enseignant, eleves, reponse, erreurs, astuce, aide, enrichissement, info, differentiation.
+Couleurs par domaine : Français:#d32f2f, Mathématiques:#1565c0, Langue vivante:#ef6c00, Enseignements artistiques:#8e24aa, Éducation physique et sportive:#2e7d32, Questionner le monde:#00897b, Enseignement moral et civique (EMC):#3949ab, Enseignement transversal:#607d8b.
+Lieux : Classe, Préau, Salle d'arts, Bibliothèque, Salle informatique, Cour.
+
+Retourne UNIQUEMENT le JSON, rien d'autre.
+
+--- TEXTE DU CAHIER JOURNAL (SEMAINE) ---
+${text}`;
+
+  navigator.clipboard.writeText(prompt).then(() => {
+    document.getElementById('wrStep1').style.display = 'none';
+    document.getElementById('wrStep2').style.display = 'flex';
+    document.getElementById('wrBtnNext').style.display = 'none';
+    document.getElementById('wrBtnImport').style.display = '';
+    document.getElementById('wrBtnBack').style.display = '';
+    toast('Prompt copié ! Collez-le sur Claude.ai', 'ok');
+    window.open('https://claude.ai', '_blank');
+  }).catch(() => {
+    const w = window.open('', '_blank', 'width=700,height=500');
+    w.document.write('<pre style="font-family:monospace;font-size:12px;white-space:pre-wrap;padding:20px">' + prompt.replace(/</g,'&lt;') + '</pre>');
+    w.document.title = 'Prompt à copier';
+    document.getElementById('wrStep1').style.display = 'none';
+    document.getElementById('wrStep2').style.display = 'flex';
+    document.getElementById('wrBtnNext').style.display = 'none';
+    document.getElementById('wrBtnImport').style.display = '';
+    document.getElementById('wrBtnBack').style.display = '';
+  });
+}
+
+function wrDoImport() {
+  const jsonText = document.getElementById('wrJsonArea').value.trim();
+  if (!jsonText) { toast('Veuillez coller le JSON de Claude', 'inf'); return; }
+  const mode = document.querySelector('input[name="wrMode"]:checked').value;
+
+  let parsed;
+  try {
+    const cleaned = jsonText.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/\s*```$/,'').trim();
+    parsed = JSON.parse(cleaned);
+  } catch (e) {
+    toast('JSON invalide — vérifiez que vous avez bien copié toute la réponse de Claude', 'inf');
+    return;
+  }
+
+  const DAY_KEYS = ['lundi','mardi','mercredi','jeudi','vendredi'];
+  const wk = String(currentWeek);
+  if (!state.weeks[wk]) state.weeks[wk] = {};
+
+  let totalSeances = 0, daysRestored = 0;
+  DAY_KEYS.forEach((key, dayIndex) => {
+    const dayData = parsed[key];
+    if (!dayData || !dayData.seances || !dayData.seances.length) return;
+
+    const seances = dayData.seances;
+    const breaks = dayData.breaks || [];
+    const finalItems = [];
+    seances.forEach((s, i) => {
+      s.id = uid(); s.type = 'seance';
+      finalItems.push(s);
+      const br = breaks.find(b => b.after_seance_index === i);
+      if (br) finalItems.push({ id: uid(), type: 'break', label: br.label, color: br.color || '#00838f' });
+    });
+
+    if (mode === 'replace') {
+      state.weeks[wk][dayIndex] = finalItems;
+    } else {
+      if (!state.weeks[wk][dayIndex]) state.weeks[wk][dayIndex] = [];
+      state.weeks[wk][dayIndex].push(...finalItems);
+    }
+    totalSeances += seances.length;
+    daysRestored++;
+  });
+
+  if (!totalSeances) {
+    toast('Aucune séance trouvée dans le JSON pour cette semaine', 'inf');
+    return;
+  }
+
+  saveLocal(false); renderAll(); closeWeekRestore();
+  toast(totalSeances + ' séance(s) restaurée(s) sur ' + daysRestored + ' jour(s) ✓', 'ok');
+}
 
 function openPdfImport(wk, dayIndex) {
   impCtx = {wk: String(wk), dayIndex: parseInt(dayIndex)};
