@@ -139,6 +139,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 /* break bar */
 .break-bar{border-radius:var(--r-sm);padding:4px 10px;font-size:11px;font-weight:600;
   color:#fff;text-align:center;letter-spacing:.3px;background:#00838f}
+.recess-marker{border-radius:var(--r-sm);padding:3px 10px;font-size:10px;font-weight:600;
+  color:var(--text3);text-align:center;letter-spacing:.3px;background:repeating-linear-gradient(
+  45deg,var(--surface2),var(--surface2) 6px,var(--border) 6px,var(--border) 7px);
+  border:1px dashed var(--border);user-select:none}
 
 /* add btn */
 .add-btn{width:100%;padding:5px;border:1.5px dashed var(--border2);border-radius:var(--r-sm);
@@ -1466,7 +1470,25 @@ function renderGrid() {
     const body = col.querySelector(`#db_${day.dayIndex}`);
     setupDropZone(body, wk, day.dayIndex);
 
+    // Repères fixes de récréation (non modifiables), insérés à leur place chronologique
+    const RECESS_MARKERS = [
+      { start:'10:15', end:'10:30', label:'☕ Récréation · 10h15-10h30' },
+      { start:'15:15', end:'15:30', label:'☕ Récréation · 15h15-15h30' }
+    ];
+    const pendingMarkers = RECESS_MARKERS.slice();
+    function flushMarkersUpTo(timeStr) {
+      const t = t2m(timeStr);
+      while (pendingMarkers.length && (isNaN(t) || t2m(pendingMarkers[0].start) <= t)) {
+        const m = pendingMarkers.shift();
+        const bar = document.createElement('div');
+        bar.className = 'recess-marker';
+        bar.textContent = m.label;
+        body.appendChild(bar);
+      }
+    }
+
     seances.forEach((s, si) => {
+      flushMarkersUpTo(s.start || '23:59');
       if(s.type==='break') {
         const bar = document.createElement('div');
         bar.className = 'break-bar';
@@ -1477,6 +1499,7 @@ function renderGrid() {
         body.appendChild(makeCard(s, wk, day.dayIndex, si));
       }
     });
+    flushMarkersUpTo('23:59'); // reste (ex: aucune séance l'après-midi)
 
     const addBtn = document.createElement('button');
     addBtn.className = 'add-btn';
@@ -1491,6 +1514,12 @@ function makeCard(s, wk, dayIndex, si) {
   card.className = 'card';
   card.draggable = true;
   card.dataset.wk = wk; card.dataset.di = dayIndex; card.dataset.si = si;
+
+  // Hauteur proportionnelle à la durée (cartes empilées, sans trou/axe horaire réel)
+  const durMinForHeight = t2m(s.end) - t2m(s.start);
+  if(!isNaN(durMinForHeight) && durMinForHeight > 0) {
+    card.style.minHeight = Math.max(50, Math.round(durMinForHeight * 1.6)) + 'px';
+  }
 
   const d = dur(s.start, s.end);
   // materials compact (screen only)
@@ -1518,6 +1547,7 @@ function makeCard(s, wk, dayIndex, si) {
       <div class="card-btns">
         <button class="card-btn" title="Modifier" onclick="event.stopPropagation();openEdit('${wk}',${dayIndex},${si})">✏️</button>
         <button class="card-btn" title="Dupliquer" onclick="event.stopPropagation();dupSeance('${wk}',${dayIndex},${si})">📋</button>
+        <button class="card-btn" title="Copier vers une autre semaine" onclick="event.stopPropagation();openCopySeance('${wk}',${dayIndex},${si})">↗️</button>
         <button class="card-btn" title="Supprimer" onclick="event.stopPropagation();delSeance('${wk}',${dayIndex},${si})">🗑</button>
       </div>
     </div>
@@ -1626,6 +1656,41 @@ function pasteDay(fromWk, fromDi, toWk, toDi) {
   state.weeks[toWk][toDi] = deepClone(src).map(s=>({...s,id:uid()}));
   saveLocal(false); renderAll();
   toast('Jour copié ✓','ok');
+}
+
+function openCopySeance(wk, dayIndex, si) {
+  const opts = [];
+  for (let w = 0; w < state.settings.nbWeeks; w++) {
+    opts.push({ label: `Semaine ${w+1}`, cb: () => openCopySeanceToWeek(wk, dayIndex, si, w) });
+  }
+  showPicker('↗️ Copier cette séance vers…', opts);
+}
+
+function openCopySeanceToWeek(fromWk, fromDi, si, toWeekIdx) {
+  const days = getWeekDates(toWeekIdx);
+  const opts = days.map(d => ({
+    label: `${['Lundi','Mardi','Mercredi','Jeudi','Vendredi'][d.dayIndex]} ${d.date}`,
+    cb: () => pasteSeance(fromWk, fromDi, si, String(toWeekIdx), d.dayIndex)
+  }));
+  showPicker(`↗️ Coller vers S${toWeekIdx+1}`, opts);
+}
+
+function pasteSeance(fromWk, fromDi, si, toWk, toDi) {
+  const src = ((state.weeks[fromWk]||{})[fromDi]||[])[si];
+  if(!src) return;
+  if(!state.weeks[toWk]) state.weeks[toWk] = {};
+  if(!state.weeks[toWk][toDi]) state.weeks[toWk][toDi] = [];
+  const copy = deepClone(src);
+  copy.id = uid();
+  state.weeks[toWk][toDi].push(copy);
+  state.weeks[toWk][toDi].sort((a,b) => {
+    const ta = t2m(a.start), tb = t2m(b.start);
+    if(isNaN(ta)) return 1;
+    if(isNaN(tb)) return -1;
+    return ta - tb;
+  });
+  saveLocal(false); renderAll();
+  toast(`Séance copiée vers S${parseInt(toWk)+1} ✓`,'ok');
 }
 
 function copyWeek() {
@@ -1985,6 +2050,15 @@ function saveSeance() {
   } else {
     state.weeks[wk][dayIndex].push(seance);
   }
+
+  // Réorganise automatiquement par horaire de début (les créneaux qui se
+  // chevauchent se retrouvent simplement à la suite, sans modifier leurs horaires)
+  state.weeks[wk][dayIndex].sort((a,b) => {
+    const ta = t2m(a.start), tb = t2m(b.start);
+    if(isNaN(ta)) return 1;
+    if(isNaN(tb)) return -1;
+    return ta - tb;
+  });
 
   saveLocal(false); renderAll(); closeModal();
   toast('Séance enregistrée ✓','ok');
@@ -2656,12 +2730,12 @@ async function exportWord() {
           })
         ]})]
       }));
-      children.push(new Paragraph({ children:[], spacing:{after:80} }));
+      children.push(new Paragraph({ children:[], spacing:{after:0} }));
 
       // ── Matériel (ligne simple italique, comme le modèle) ──────────────────
       if(s.materials && s.materials.length) {
         children.push(new Paragraph({
-          spacing: { after: 100 },
+          spacing: { after: 20 },
           children: [
             new TextRun({ text:'🧰 Matériel : ', italics:true, bold:true, size:18, color:'666666', font:'Arial' }),
             new TextRun({ text: s.materials.join(' · '), italics:true, size:18, color:'666666', font:'Arial' })
@@ -2674,7 +2748,7 @@ async function exportWord() {
         children.push(coloredBox('🎯', 'Objectif de la séance', 'BDD7EE', '2E75B6',
           objectifToRuns(s.objectif, { size:19, font:'Arial', color:'222222' }).map(r => new TextRun(r))
         ));
-        children.push(new Paragraph({ children:[], spacing:{after:100} }));
+        children.push(new Paragraph({ children:[], spacing:{after:0} }));
       }
 
       // ── Blocs ────────────────────────────────────────────────────────────
@@ -2731,12 +2805,12 @@ async function exportWord() {
                 })
               ]})]
             }));
-            children.push(new Paragraph({ children:[], spacing:{after:100} }));
+            children.push(new Paragraph({ children:[], spacing:{after:0} }));
             bi += 2; continue;
           }
 
           children.push(coloredBox(bt.icon, bt.label, style.fill, style.text, bodyRuns));
-          children.push(new Paragraph({ children:[], spacing:{after:100} }));
+          children.push(new Paragraph({ children:[], spacing:{after:0} }));
           bi++;
         }
       }
