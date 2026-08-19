@@ -2051,15 +2051,6 @@ function saveSeance() {
     state.weeks[wk][dayIndex].push(seance);
   }
 
-  // Réorganise automatiquement par horaire de début (les créneaux qui se
-  // chevauchent se retrouvent simplement à la suite, sans modifier leurs horaires)
-  state.weeks[wk][dayIndex].sort((a,b) => {
-    const ta = t2m(a.start), tb = t2m(b.start);
-    if(isNaN(ta)) return 1;
-    if(isNaN(tb)) return -1;
-    return ta - tb;
-  });
-
   saveLocal(false); renderAll(); closeModal();
   toast('Séance enregistrée ✓','ok');
 }
