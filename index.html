@@ -418,6 +418,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
   <div class="weekbar-right">
     <button class="btn btn-ghost btn-sm" onclick="gotoWeek(currentWeek+1)">Suiv. →</button>
     <button class="btn btn-ghost btn-sm" onclick="copyWeek()">📋 Copier semaine</button>
+    <button class="btn btn-ghost btn-sm" onclick="deleteWeek()" style="color:#e53935">🗑 Supprimer semaine</button>
   </div>
 </div>
 
@@ -1530,6 +1531,19 @@ function deleteBreak(wk, dayIndex, breakId) {
   toast('Pause supprimée', 'inf');
 }
 
+function deleteDay(wk, dayIndex) {
+  const dayName = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi'][dayIndex];
+  const count = ((state.weeks[wk]||{})[dayIndex]||[]).filter(e => e.type !== 'break').length;
+  const msg = count > 0
+    ? `Supprimer toute la journée de ${dayName} ? Cela effacera ${count} séance(s). Cette action est irréversible.`
+    : `Supprimer toute la journée de ${dayName} ?`;
+  if (!confirm(msg)) return;
+  if (!state.weeks[wk]) state.weeks[wk] = {};
+  state.weeks[wk][dayIndex] = [];
+  saveLocal(false); renderAll();
+  toast('Journée supprimée', 'inf');
+}
+
 function renderGrid() {
   const grid = document.getElementById('dayGrid');
   grid.innerHTML = '';
@@ -1559,6 +1573,7 @@ function renderGrid() {
           <button class="day-hd-btn" title="Importer depuis PDF" onclick="openPdfImport('${wk}',${day.dayIndex})">📄</button>
           <button class="day-hd-btn" title="Copier ce jour" onclick="openCopyDay('${wk}',${day.dayIndex})">📋</button>
           <button class="day-hd-btn" title="Ajouter séance" onclick="openNew('${wk}',${day.dayIndex})">+</button>
+          <button class="day-hd-btn" title="Supprimer toute la journée" onclick="deleteDay('${wk}',${day.dayIndex})">🗑</button>
         </div>
       </div>
       <div class="day-body" id="db_${day.dayIndex}"></div>`;
@@ -1792,6 +1807,21 @@ function copyWeek() {
   currentWeek++;
   saveLocal(false); renderAll();
   toast(`Semaine copiée → S${currentWeek+1} ✓`,'ok');
+}
+
+function deleteWeek() {
+  const wk = String(currentWeek);
+  const days = state.weeks[wk] || {};
+  const count = Object.values(days).reduce((a, list) =>
+    a + (list||[]).filter(e => e.type !== 'break').length, 0);
+  const label = getWeekLabel(currentWeek);
+  const msg = count > 0
+    ? `Supprimer toute la semaine "${label}" ? Cela effacera ${count} séance(s) sur les 5 jours. Cette action est irréversible.`
+    : `Supprimer toute la semaine "${label}" ?`;
+  if (!confirm(msg)) return;
+  state.weeks[wk] = {};
+  saveLocal(false); renderAll();
+  toast('Semaine supprimée', 'inf');
 }
 
 // picker modal
