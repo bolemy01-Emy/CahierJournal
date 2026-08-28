@@ -405,6 +405,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
     <button class="btn btn-ghost" onclick="exportWord()" title="Exporter la semaine en cours en Word">📝 Word</button>
     <button class="btn btn-ghost" onclick="openSemainier()" title="Vue créneaux / domaines / objectifs de la semaine en cours">📅 Semainier</button>
     <button class="btn btn-ghost" onclick="openWeekRestore()" title="Reconstruire la semaine affichée à partir d'un fichier Word exporté">🗂️ Restaurer (Word)</button>
+    <button class="btn btn-ghost" onclick="cloudSaveWithCode()" title="Sauvegarder maintenant dans le cloud (code requis)">☁️ Sauvegarde cloud</button>
     <button class="btn btn-green" onclick="saveLocal(true)">💾 Sauvegarder</button>
     <button class="btn btn-primary" onclick="openNew()">+ Séance</button>
   </div>
@@ -649,6 +650,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
       </div>
       <div id="cloudLoggedIn" style="display:none;flex-direction:column;gap:7px">
         <div id="cloudEmailDisplay" style="font-size:12px;color:var(--text2)"></div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer">
+          <input type="checkbox" id="cloudAutoToggle" checked onchange="onCloudAutoToggle()"> Sauvegarde automatique
+        </label>
+        <div id="cloudAutoStatus" style="font-size:10px;color:var(--text3)"></div>
         <button class="btn btn-ghost btn-sm" onclick="cloudSave()">☁️ Sauvegarder en ligne</button>
         <button class="btn btn-ghost btn-sm" onclick="cloudRestore()">⬇️ Restaurer depuis le cloud</button>
         <button class="btn btn-ghost btn-sm" onclick="cloudLogout()">🚪 Se déconnecter</button>
@@ -2225,6 +2230,7 @@ function gotoWeek(i) {
 function saveLocal(notify=true) {
   localStorage.setItem('cj_v3', JSON.stringify(state));
   if(notify) toast('Sauvegardé ✓','ok');
+  scheduleCloudAutoSave();
 }
 function exportJSON() {
   const b = new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
@@ -2280,6 +2286,10 @@ function updateCloudUI(session) {
     if (unavailable) unavailable.style.display = 'none';
     const disp = document.getElementById('cloudEmailDisplay');
     if (disp) disp.textContent = 'Connecté : ' + (session.user?.email || '');
+    const autoToggle = document.getElementById('cloudAutoToggle');
+    if (autoToggle) autoToggle.checked = isCloudAutoEnabled();
+    updateCloudAutoStatus(isCloudAutoEnabled() ? 'Sauvegarde automatique activée' : 'Sauvegarde automatique désactivée');
+    scheduleCloudAutoSave();
   } else {
     if (loggedOut) loggedOut.style.display = 'flex';
     if (loggedIn) loggedIn.style.display = 'none';
@@ -2320,6 +2330,15 @@ async function cloudLogout() {
   catch (e) { toast('Erreur : '+e.message,'inf'); }
 }
 
+const CLOUD_SAVE_CODE = '0504';
+function cloudSaveWithCode() {
+  if (!sb) { toast('Service cloud indisponible','inf'); return; }
+  const code = prompt('Code de confirmation pour la sauvegarde cloud :');
+  if (code === null) return; // annulé
+  if (code !== CLOUD_SAVE_CODE) { toast('Code incorrect','inf'); return; }
+  cloudSave();
+}
+
 async function cloudSave() {
   if (!sb) { toast('Service cloud indisponible','inf'); return; }
   const { data: { session } } = await sb.auth.getSession();
@@ -2327,10 +2346,62 @@ async function cloudSave() {
   toast('Sauvegarde en cours…','inf');
   try {
     const { error } = await sb.from('cahier_journal_backup').insert({ data: state });
-    if (error) toast('Erreur cloud : '+error.message,'inf');
-    else toast('Sauvegardé dans le cloud ✓','ok');
+    if (error) { toast('Erreur cloud : '+error.message,'inf'); return; }
+    toast('Sauvegardé dans le cloud ✓','ok');
+    lastCloudAutoSave = Date.now();
+    updateCloudAutoStatus('Dernière sauvegarde : ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}));
   } catch (e) {
     toast('Erreur cloud : '+e.message,'inf');
+  }
+}
+
+// ── Sauvegarde cloud AUTOMATIQUE ────────────────────────────────────────────
+// Se déclenche automatiquement quelques secondes après une modification
+// (débounce), avec un intervalle minimum entre deux sauvegardes réelles pour
+// éviter de multiplier les lignes dans Supabase à chaque petite frappe.
+let cloudAutoTimer = null;
+let lastCloudAutoSave = 0;
+const CLOUD_AUTO_DEBOUNCE = 60000;      // attend 60s d'inactivité avant de sauvegarder
+const CLOUD_AUTO_MIN_INTERVAL = 120000; // au moins 2 min entre deux sauvegardes auto
+
+function isCloudAutoEnabled() {
+  return localStorage.getItem('cj_cloud_auto') !== 'off'; // activé par défaut
+}
+function onCloudAutoToggle() {
+  const on = document.getElementById('cloudAutoToggle').checked;
+  localStorage.setItem('cj_cloud_auto', on ? 'on' : 'off');
+  updateCloudAutoStatus(on ? 'Sauvegarde automatique activée' : 'Sauvegarde automatique désactivée');
+}
+function updateCloudAutoStatus(msg) {
+  const el = document.getElementById('cloudAutoStatus');
+  if (el) el.textContent = msg;
+}
+
+function scheduleCloudAutoSave() {
+  if (!sb || !isCloudAutoEnabled()) return;
+  clearTimeout(cloudAutoTimer);
+  cloudAutoTimer = setTimeout(attemptCloudAutoSave, CLOUD_AUTO_DEBOUNCE);
+}
+
+async function attemptCloudAutoSave() {
+  if (!sb || !isCloudAutoEnabled()) return;
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return; // pas connecté : pas de sauvegarde automatique
+    const now = Date.now();
+    if (now - lastCloudAutoSave < CLOUD_AUTO_MIN_INTERVAL) {
+      const remaining = CLOUD_AUTO_MIN_INTERVAL - (now - lastCloudAutoSave);
+      clearTimeout(cloudAutoTimer);
+      cloudAutoTimer = setTimeout(attemptCloudAutoSave, remaining + 500);
+      return;
+    }
+    const { error } = await sb.from('cahier_journal_backup').insert({ data: state });
+    if (!error) {
+      lastCloudAutoSave = now;
+      updateCloudAutoStatus('Dernière sauvegarde auto : ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}));
+    }
+  } catch (e) {
+    console.error('Erreur sauvegarde cloud automatique :', e);
   }
 }
 
