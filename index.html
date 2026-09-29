@@ -295,6 +295,44 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .picker-opt:hover{border-color:var(--accent);background:var(--accent-light);color:var(--accent)}
 
 /* ══════════════════════════════════════════════════
+   TAILLE DU TEXTE (balises <font size> produites par execCommand)
+══════════════════════════════════════════════════ */
+font[size="1"]{font-size:.75em}
+font[size="2"]{font-size:.85em}
+font[size="3"]{font-size:1em}
+font[size="4"]{font-size:1.15em}
+font[size="5"]{font-size:1.3em}
+font[size="6"]{font-size:1.6em}
+font[size="7"]{font-size:2em}
+.size-sel{height:22px;border-radius:4px;font-size:11px;padding:0 2px;cursor:pointer;font-family:inherit;flex-shrink:0;width:82px}
+div:has(> .size-sel-obj) > button,div:has(> .size-sel-obj) > input{flex-shrink:0}
+div:has(> .size-sel-obj){flex-wrap:wrap;row-gap:4px}
+.size-sel-obj{width:70px}
+.size-sel-obj{background:rgba(255,255,255,.25);border:none;color:#fff}
+.size-sel-obj option{color:#222}
+.size-sel-blk{background:var(--surface);border:1px solid var(--border);color:var(--text2)}
+
+/* ══════════════════════════════════════════════════
+   CALENDRIER DE COPIE
+══════════════════════════════════════════════════ */
+.cal-box{width:380px;max-width:94vw}
+.cal-hint{font-size:12px;color:var(--text2);margin-top:-6px}
+.cal-nav{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cal-nav span{font-weight:700;font-size:14px;text-transform:capitalize}
+.cal-nav button:disabled{opacity:.3;cursor:default}
+.cal-head,.cal-row{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cal-head div{font-size:10px;font-weight:700;color:var(--text3);text-align:center;text-transform:uppercase}
+.cal-cell{height:34px;display:flex;align-items:center;justify-content:center;border-radius:6px;
+  font-size:13px;border:1.5px solid transparent;color:var(--text3);user-select:none}
+.cal-cell.other{opacity:.35}
+.cal-cell.ok{color:var(--text);background:var(--surface2);cursor:pointer;font-weight:600}
+.cal-cell.ok.hl{border-color:var(--accent);background:var(--accent-light);color:var(--accent)}
+.cal-cell.src{background:#fff3cd;color:#8a6d00;border-color:#f0c24b;font-weight:700;cursor:default}
+.cal-cell.today{text-decoration:underline;text-underline-offset:3px}
+.cal-cell.has::after{content:'';width:5px;height:5px;border-radius:50%;background:var(--accent);margin-left:3px}
+.cal-legend{font-size:11px;color:var(--text3);display:flex;gap:12px;flex-wrap:wrap}
+
+/* ══════════════════════════════════════════════════
    TOAST
 ══════════════════════════════════════════════════ */
 .toast{position:fixed;bottom:22px;right:22px;background:#1a1d2e;color:#fff;
@@ -531,6 +569,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
           <span style="font-size:11px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.5px;flex:1">Objectifs</span>
           <button type="button" title="Gras" onmousedown="event.preventDefault()" onclick="document.execCommand('bold')" style="background:rgba(255,255,255,.25);border:none;color:#fff;width:22px;height:22px;border-radius:4px;cursor:pointer;font-weight:700;font-size:12px">G</button>
           <button type="button" title="Souligné" onmousedown="event.preventDefault()" onclick="document.execCommand('underline')" style="background:rgba(255,255,255,.25);border:none;color:#fff;width:22px;height:22px;border-radius:4px;cursor:pointer;text-decoration:underline;font-size:12px">S</button>
+          <select class="size-sel size-sel-obj" title="Taille du texte sélectionné" onmousedown="saveSizeSel(document.getElementById('fObjectif'))" onchange="applySize(this)"><option value="">Taille</option><option value="2">Petit</option><option value="3">Normal</option><option value="5">Grand</option><option value="6">Très grand</option></select>
           <input type="color" id="fObjectifColor" title="Couleur du texte" value="#e53935" onmousedown="saveObjSelection()" oninput="applyObjColor(this.value)" style="width:22px;height:22px;padding:0;border:none;border-radius:4px;cursor:pointer;background:none">
           <button type="button" title="Effacer la mise en forme" onmousedown="event.preventDefault()" onclick="document.execCommand('removeFormat')" style="background:rgba(255,255,255,.25);border:none;color:#fff;width:22px;height:22px;border-radius:4px;cursor:pointer;font-size:12px">✕</button>
         </div>
@@ -584,6 +623,23 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
     <h3 id="pickerTitle">Copier ce jour vers…</h3>
     <div class="picker-options" id="pickerOptions"></div>
     <button class="btn btn-ghost btn-sm" onclick="closePicker()">Annuler</button>
+  </div>
+</div>
+
+<!-- ══ CALENDRIER DE COPIE ═════════════════════════════════════════════════ -->
+<div class="picker-overlay" id="calOverlay" onclick="if(event.target===this)closeCal()">
+  <div class="picker-box cal-box">
+    <h3 id="calTitle">Copier vers…</h3>
+    <div class="cal-hint" id="calHint"></div>
+    <div class="cal-nav">
+      <button class="btn btn-ghost btn-sm" id="calPrev" onclick="calMove(-1)">‹</button>
+      <span id="calMonth"></span>
+      <button class="btn btn-ghost btn-sm" id="calNext" onclick="calMove(1)">›</button>
+    </div>
+    <div class="cal-head"><div>Lu</div><div>Ma</div><div>Me</div><div>Je</div><div>Ve</div><div>Sa</div><div>Di</div></div>
+    <div id="calGrid" style="display:flex;flex-direction:column;gap:3px"></div>
+    <div class="cal-legend"><span>🟨 source</span><span>● contient déjà des séances</span><span><u>12</u> aujourd'hui</span></div>
+    <button class="btn btn-ghost btn-sm" onclick="closeCal()">Annuler</button>
   </div>
 </div>
 
@@ -1062,6 +1118,16 @@ function objectifToRuns(html, baseOpts) {
     if (tag === 'span' && node.style && node.style.color) {
       const hex = rgbToHex(node.style.color);
       if (hex) nf.color = hex;
+    }
+    if (tag === 'font') {
+      const c = node.getAttribute('color');
+      if (c) {
+        const hex = c.startsWith('rgb') ? rgbToHex(c) : c.replace('#', '').toUpperCase();
+        if (/^[0-9A-F]{6}$/.test(hex || '')) nf.color = hex;
+      }
+      const sz = node.getAttribute('size');
+      const FACT = { '1': .75, '2': .85, '3': 1, '4': 1.15, '5': 1.3, '6': 1.6, '7': 2 };
+      if (sz && FACT[sz]) nf.size = Math.round(((baseOpts && baseOpts.size) || 20) * FACT[sz]);
     }
     Array.from(node.childNodes).forEach(c => walk(c, nf));
   }
@@ -1703,23 +1769,26 @@ function moveCard(from, toWk, toDi, afterEl) {
 // ════════════════════════════════════════════════════════════════════════════
 // COPY DAY / WEEK
 // ════════════════════════════════════════════════════════════════════════════
+const DAY_NAMES = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi'];
+const DAY_KEYS  = ['lundi','mardi','mercredi','jeudi','vendredi'];
+
 function openCopyDay(wk, dayIndex) {
   const days = getWeekDates(currentWeek);
   const opts = [];
+  opts.push({ label: '📅 Choisir une date dans le calendrier…',
+    cb: () => openCal('day', wk, dayIndex) });
   // same week other days
   days.forEach(d => {
     if(d.dayIndex !== dayIndex)
-      opts.push({ label: `Ce jour → ${['Lundi','Mardi','Mercredi','Jeudi','Vendredi'][d.dayIndex]} ${d.date}`,
-        cb: () => { pasteDay(wk, dayIndex, String(currentWeek), d.dayIndex); }});
+      opts.push({ label: `Ce jour → ${DAY_NAMES[d.dayIndex]} ${d.date}`,
+        cb: () => doCopyDay(wk, dayIndex, String(currentWeek), d.dayIndex) });
   });
   // next week same day
   if(currentWeek+1 < state.settings.nbWeeks) {
     const nw = getWeekDates(currentWeek+1);
     const nd = nw.find(d=>d.dayIndex===dayIndex);
     if(nd) opts.push({ label:`Ce jour → S${currentWeek+2} même jour (${nd.date})`,
-      cb: () => pasteDay(wk, dayIndex, String(currentWeek+1), dayIndex) });
-    opts.push({ label:`Ce jour → S${currentWeek+2} choisir le jour…`,
-      cb: () => { closePicker(); setTimeout(()=>openCopyDayToWeek(wk,dayIndex,currentWeek+1),200); }});
+      cb: () => doCopyDay(wk, dayIndex, String(currentWeek+1), dayIndex) });
   }
   showPicker('📋 Copier ce jour vers…', opts);
 }
@@ -1727,10 +1796,195 @@ function openCopyDay(wk, dayIndex) {
 function openCopyDayToWeek(fromWk, fromDi, toWeekIdx) {
   const days = getWeekDates(toWeekIdx);
   const opts = days.map(d => ({
-    label: `${['Lundi','Mardi','Mercredi','Jeudi','Vendredi'][d.dayIndex]} ${d.date}`,
-    cb: () => pasteDay(fromWk, fromDi, String(toWeekIdx), d.dayIndex)
+    label: `${DAY_NAMES[d.dayIndex]} ${d.date}`,
+    cb: () => doCopyDay(fromWk, fromDi, String(toWeekIdx), d.dayIndex)
   }));
   showPicker(`📋 Coller vers S${toWeekIdx+1}`, opts);
+}
+
+// ── Dates : conversion (semaine, jour) <-> date réelle ───────────────────────
+function startLocalDate() {
+  const p = String(state.settings.startDate || '').split('-').map(Number);
+  if (p.length !== 3 || p.some(isNaN)) return null;
+  return new Date(p[0], p[1]-1, p[2]);
+}
+function dateOfWD(wi, di) {
+  const b = startLocalDate(); if (!b) return null;
+  return new Date(b.getFullYear(), b.getMonth(), b.getDate() + wi*7 + di);
+}
+function wdOfDate(d) {
+  const b = startLocalDate(); if (!b) return null;
+  const diff = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - b) / 864e5);
+  if (diff < 0) return null;
+  return { wi: Math.floor(diff/7), di: diff % 7 };
+}
+function fmtLongDate(d) {
+  return d ? d.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' }) : '';
+}
+// Semaine à afficher à l'ouverture : semaine du jour ; le week-end → semaine suivante ;
+// avant S1 → S1 ; après la dernière semaine → dernière semaine.
+function getTodayWeekIndex() {
+  const n = Math.max(1, parseInt(state.settings.nbWeeks) || 1);
+  const wd = wdOfDate(new Date());
+  if (!wd) return 0;
+  let wi = wd.wi;
+  if (wd.di >= 5) wi++;
+  return Math.min(Math.max(0, wi), n-1);
+}
+// On ne compte que les vraies séances (les récréations sont ajoutées automatiquement partout)
+function countSeances(arr) { return (Array.isArray(arr) ? arr : []).filter(s => s && s.type !== 'break').length; }
+function countDay(wk, di) { return countSeances((state.weeks[wk]||{})[di]); }
+function countWeek(wk) {
+  return Object.values(state.weeks[wk]||{}).reduce((t,a) => t + countSeances(a), 0);
+}
+function cloneSeances(arr) { return deepClone(arr||[]).map(s => ({...s, id: uid()})); }
+// "Ajouter à la suite" : ajoute les séances copiées après l'existant, sans dupliquer
+// une pause déjà présente (même début, même fin) et sans réordonner la liste.
+function appendCopies(target, src) {
+  const out = (target || []).slice();
+  cloneSeances(src).forEach(s => {
+    if (s.type === 'break' && out.some(e => e.type === 'break' && e.start === s.start && e.end === s.end)) return;
+    out.push(s);
+  });
+  return out;
+}
+
+// ── Copie d'un jour avec contrôle de la destination ──────────────────────────
+function doCopyDay(fromWk, fromDi, toWk, toDi) {
+  fromWk = String(fromWk); toWk = String(toWk);
+  if (fromWk === toWk && +fromDi === +toDi) { toast('La destination est le jour source','inf'); return; }
+  const src = ((state.weeks[fromWk]||{})[fromDi]) || [];
+  if (!countSeances(src)) { toast('Rien à copier : ce jour est vide','inf'); return; }
+  const target = fmtLongDate(dateOfWD(+toWk, +toDi));
+  const apply = mode => {
+    if (!state.weeks[toWk]) state.weeks[toWk] = {};
+    const copies = cloneSeances(src);
+    state.weeks[toWk][toDi] = mode === 'append' ? appendCopies(state.weeks[toWk][toDi], src) : copies;
+    saveLocal(false); renderAll();
+    toast(`Jour copié → ${target} (S${+toWk+1}) ✓`,'ok');
+  };
+  const n = countDay(toWk, toDi);
+  if (!n) { apply('replace'); return; }
+  showPicker(`⚠️ Le ${target} contient déjà ${n} séance(s)`, [
+    { label: '♻️ Remplacer le contenu de ce jour', cb: () => apply('replace') },
+    { label: '➕ Ajouter à la suite de ce qui existe', cb: () => apply('append') }
+  ]);
+}
+
+// ── Copie d'une semaine avec contrôle de la destination ──────────────────────
+function doCopyWeek(fromWi, toWi) {
+  fromWi = +fromWi; toWi = +toWi;
+  if (fromWi === toWi) { toast('La destination est la semaine source','inf'); return; }
+  const fromWk = String(fromWi), toWk = String(toWi);
+  const src = state.weeks[fromWk] || {};
+  if (!countWeek(fromWk)) { toast('Rien à copier : cette semaine est vide','inf'); return; }
+  const apply = mode => {
+    if (toWi >= state.settings.nbWeeks) {
+      state.settings.nbWeeks = toWi + 1;
+      const inp = document.getElementById('sNbW'); if (inp) inp.value = state.settings.nbWeeks;
+    }
+    if (mode === 'append') {
+      if (!state.weeks[toWk]) state.weeks[toWk] = {};
+      Object.entries(src).forEach(([di, arr]) => {
+        if (!Array.isArray(arr) || !arr.length) return;
+        state.weeks[toWk][di] = appendCopies(state.weeks[toWk][di], arr);
+      });
+    } else {
+      state.weeks[toWk] = {};
+      Object.entries(src).forEach(([di, arr]) => { state.weeks[toWk][di] = cloneSeances(arr); });
+    }
+    currentWeek = toWi;
+    saveLocal(false); renderAll();
+    toast(`Semaine copiée → S${toWi+1} ✓`,'ok');
+  };
+  const n = countWeek(toWk);
+  if (!n) { apply('replace'); return; }
+  showPicker(`⚠️ La semaine S${toWi+1} contient déjà ${n} séance(s)`, [
+    { label: '♻️ Remplacer toute la semaine', cb: () => apply('replace') },
+    { label: '➕ Ajouter à la suite, jour par jour', cb: () => apply('append') }
+  ]);
+}
+
+// ── Calendrier de sélection de la destination ───────────────────────────────
+let calCtx = null; // { mode:'day'|'week', fromWk, fromDi, y, m }
+function openCal(mode, fromWk, fromDi) {
+  if (!startLocalDate()) { toast('Date de début S1 invalide (Paramètres)','inf'); return; }
+  const ref = dateOfWD(+fromWk, mode === 'day' ? +fromDi : 0);
+  calCtx = { mode, fromWk: String(fromWk), fromDi: +fromDi, y: ref.getFullYear(), m: ref.getMonth() };
+  document.getElementById('calTitle').textContent = mode === 'day'
+    ? `📅 Copier le ${fmtLongDate(ref)} vers…`
+    : `📅 Copier la semaine S${+fromWk+1} vers…`;
+  document.getElementById('calHint').textContent = mode === 'day'
+    ? 'Cliquez sur le jour de destination (seuls les jours de classe planifiés sont proposés).'
+    : 'Cliquez sur n\'importe quel jour de la semaine de destination.';
+  renderCal();
+  document.getElementById('calOverlay').classList.add('open');
+}
+function closeCal() { document.getElementById('calOverlay').classList.remove('open'); }
+function calMove(delta) {
+  if (!calCtx) return;
+  const d = new Date(calCtx.y, calCtx.m + delta, 1);
+  calCtx.y = d.getFullYear(); calCtx.m = d.getMonth();
+  renderCal();
+}
+function renderCal() {
+  const c = calCtx; if (!c) return;
+  const nbW = state.settings.nbWeeks;
+  const first = startLocalDate(), last = dateOfWD(nbW-1, 6);
+  const monthStart = new Date(c.y, c.m, 1);
+  document.getElementById('calMonth').textContent =
+    monthStart.toLocaleDateString('fr-FR', { month:'long', year:'numeric' });
+  document.getElementById('calPrev').disabled = monthStart <= new Date(first.getFullYear(), first.getMonth(), 1);
+  document.getElementById('calNext').disabled = monthStart >= new Date(last.getFullYear(), last.getMonth(), 1);
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+  const off = (monthStart.getDay() + 6) % 7; // lundi = 0
+  let cur = new Date(c.y, c.m, 1 - off);
+  const t = new Date(); const todayKey = t.toDateString();
+  for (let r = 0; r < 6; r++) {
+    if (r > 0 && cur.getMonth() !== c.m) break;
+    const row = document.createElement('div');
+    row.className = 'cal-row';
+    for (let k = 0; k < 7; k++) {
+      const d = new Date(cur);
+      const cell = document.createElement('div');
+      cell.className = 'cal-cell';
+      cell.textContent = d.getDate();
+      if (d.getMonth() !== c.m) cell.classList.add('other');
+      if (d.toDateString() === todayKey) cell.classList.add('today');
+      const wd = wdOfDate(d);
+      const inRange = wd && wd.wi < nbW;
+      if (inRange) {
+        const wk = String(wd.wi);
+        cell.dataset.wi = wd.wi;
+        if (c.mode === 'day') {
+          const active = wd.di <= 4 && state.settings.days[DAY_KEYS[wd.di]];
+          if (active) {
+            if (countDay(wk, wd.di)) cell.classList.add('has');
+            if (wk === c.fromWk && wd.di === c.fromDi) { cell.classList.add('src'); cell.title = 'Jour source'; }
+            else {
+              cell.classList.add('ok');
+              cell.title = fmtLongDate(d) + ` (S${wd.wi+1})`;
+              cell.onclick = () => { closeCal(); doCopyDay(c.fromWk, c.fromDi, wk, wd.di); };
+            }
+          }
+        } else {
+          if (wd.di <= 4 && countDay(wk, wd.di)) cell.classList.add('has');
+          if (wk === c.fromWk) { cell.classList.add('src'); cell.title = 'Semaine source'; }
+          else {
+            cell.classList.add('ok');
+            cell.title = `S${wd.wi+1} — ` + getWeekLabel(wd.wi);
+            cell.onclick = () => { closeCal(); doCopyWeek(+c.fromWk, wd.wi); };
+            cell.onmouseenter = () => grid.querySelectorAll(`.cal-cell.ok[data-wi="${wd.wi}"]`).forEach(x => x.classList.add('hl'));
+            cell.onmouseleave = () => grid.querySelectorAll('.cal-cell.hl').forEach(x => x.classList.remove('hl'));
+          }
+        }
+      }
+      row.appendChild(cell);
+      cur.setDate(cur.getDate() + 1);
+    }
+    grid.appendChild(row);
+  }
 }
 
 function pasteDay(fromWk, fromDi, toWk, toDi) {
@@ -1778,20 +2032,14 @@ function pasteSeance(fromWk, fromDi, si, toWk, toDi) {
 }
 
 function copyWeek() {
-  const fromWk = String(currentWeek);
-  const toWk = String(currentWeek+1);
-  if(currentWeek+1 >= state.settings.nbWeeks) {
-    state.settings.nbWeeks++;
-    document.getElementById('sNbW').value = state.settings.nbWeeks;
-  }
-  const src = state.weeks[fromWk] || {};
-  state.weeks[toWk] = {};
-  Object.entries(src).forEach(([di,seances]) => {
-    state.weeks[toWk][di] = deepClone(seances).map(s=>({...s,id:uid()}));
-  });
-  currentWeek++;
-  saveLocal(false); renderAll();
-  toast(`Semaine copiée → S${currentWeek+1} ✓`,'ok');
+  const next = currentWeek + 1;
+  const opts = [
+    { label: '📅 Choisir une semaine dans le calendrier…', cb: () => openCal('week', currentWeek, 0) },
+    { label: `→ Semaine suivante : S${next+1} (${getWeekLabel(next).replace('Semaine du ','du ')})`
+        + (next >= state.settings.nbWeeks ? ' — ajoute une semaine' : ''),
+      cb: () => doCopyWeek(currentWeek, next) }
+  ];
+  showPicker(`📋 Copier la semaine S${currentWeek+1} vers…`, opts);
 }
 
 // picker modal
@@ -1891,6 +2139,28 @@ function applyBlockColor(colorInput) {
   }
   document.execCommand('foreColor', false, colorInput.value);
 }
+// ── Taille du texte sélectionné (objectif + blocs) ────────────────────────────
+let sizeRange = null, sizeField = null;
+function saveSizeSel(field) {
+  sizeRange = null; sizeField = field || null;
+  const sel = window.getSelection();
+  if (field && sel.rangeCount > 0 && field.contains(sel.anchorNode) && field.contains(sel.focusNode)) {
+    sizeRange = sel.getRangeAt(0).cloneRange();
+  }
+}
+function applySize(selEl) {
+  const v = selEl.value;
+  selEl.value = '';
+  if (!v || !sizeField) return;
+  if (!sizeRange || sizeRange.collapsed) { toast('Sélectionnez d\'abord le texte à modifier', 'inf'); return; }
+  sizeField.focus();
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(sizeRange);
+  document.execCommand('styleWithCSS', false, false);
+  document.execCommand('fontSize', false, v);
+  sizeRange = null;
+}
 function selectAllContentEditable(el) {
   const range = document.createRange();
   range.selectNodeContents(el);
@@ -1956,6 +2226,7 @@ function makeBlockEl(b, i) {
     <div class="block-fmt-bar">
       <button class="block-act" title="Gras" onmousedown="event.preventDefault()" onclick="document.execCommand('bold')"><b>G</b></button>
       <button class="block-act" title="Souligné" onmousedown="event.preventDefault()" onclick="document.execCommand('underline')" style="text-decoration:underline">S</button>
+      <select class="size-sel size-sel-blk" title="Taille du texte sélectionné" onmousedown="saveSizeSel(this.closest('.block').querySelector('.block-text-field'))" onchange="applySize(this)"><option value="">Taille</option><option value="2">Petit</option><option value="3">Normal</option><option value="5">Grand</option><option value="6">Très grand</option></select>
       <input type="color" title="Couleur du texte" value="#e53935" class="block-color" onmousedown="saveBlockSelection(this)" oninput="applyBlockColor(this)" style="width:20px;height:20px;padding:0;border:none;border-radius:4px;cursor:pointer;background:none">
       <button class="block-act" title="Effacer la mise en forme" onmousedown="event.preventDefault()" onclick="document.execCommand('removeFormat')">✕</button>
     </div>
@@ -3100,7 +3371,7 @@ async function exportWord() {
 // KEYBOARD
 // ════════════════════════════════════════════════════════════════════════════
 document.addEventListener('keydown', e => {
-  if(e.key==='Escape') { closeModal(); closeSettings(); closePicker(); closeImpModal(); }
+  if(e.key==='Escape') { closeModal(); closeSettings(); closePicker(); closeCal(); closeImpModal(); }
   if((e.ctrlKey||e.metaKey) && e.key==='s') { e.preventDefault(); saveLocal(true); }
 });
 
@@ -3110,6 +3381,7 @@ setInterval(() => saveLocal(false), 30000);
 // ════════════════════════════════════════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════════════════════════════════════════
+currentWeek = getTodayWeekIndex();
 renderAll();
 cloudInit();
 </script>
